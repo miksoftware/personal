@@ -60,7 +60,7 @@
 @endif
 
 {{-- ── Main Table Card ──────────────────────────────────────── --}}
-<div class="client-table-card" style="padding:0; overflow:hidden;">
+<div class="client-table-card devs-view" style="padding:0; overflow:hidden;">
 
     {{-- Type Filter Tabs --}}
     <div class="dev-type-tabs">
@@ -143,10 +143,10 @@
                 <tbody>
                     @foreach($developments as $dev)
                         <tr>
-                            <td style="font-weight:600;">{{ $dev->client->name }}</td>
+                            <td class="td-client" style="font-weight:600;">{{ $dev->client->name }}</td>
 
                             @if($filter === 'all')
-                                <td>
+                                <td class="td-type">
                                     <span class="badge-type {{ $dev->type }}">
                                         <i class="bi bi-{{ $dev->type === 'proyecto' ? 'kanban-fill' : ($dev->type === 'soporte' ? 'headset' : 'tools') }}"></i>
                                         {{ $dev->type_label }}
@@ -154,7 +154,7 @@
                                 </td>
                             @endif
 
-                            <td>
+                            <td class="td-title">
                                 <span class="dev-title">{{ $dev->title }}</span>
                                 @if($dev->description)
                                     <span class="dev-desc-preview" title="{{ $dev->description }}">{{ $dev->description }}</span>
@@ -162,7 +162,7 @@
                             </td>
 
                             @if($filter !== 'proyecto' && $filter !== 'soporte')
-                                <td>
+                                <td class="td-license">
                                     @if($dev->license)
                                         <span class="license-url" title="{{ $dev->license->url }}">{{ $dev->license->url }}</span>
                                     @else
@@ -171,14 +171,14 @@
                                 </td>
                             @endif
 
-                            <td>
+                            <td class="td-amount">
                                 <span class="dev-amount">${{ number_format($dev->amount, 2) }}</span>
                                 @if($dev->type === 'soporte' && $dev->monthly_fee && $dev->contract_months)
                                     <span class="dev-desc-preview">${{ number_format($dev->monthly_fee, 0) }}/período × {{ $dev->contract_months }} períodos</span>
                                 @endif
                             </td>
 
-                            <td>
+                            <td class="td-status">
                                 <span class="badge-status {{ $dev->status }}">
                                     <i class="bi bi-circle-fill" style="font-size:7px;"></i>
                                     {{ $dev->status_label }}
@@ -186,10 +186,10 @@
                             </td>
 
                             @if($filter === 'proyecto')
-                                <td style="color:var(--silver-light); font-size:13px;">
+                                <td class="td-date" style="color:var(--silver-light); font-size:13px;">
                                     {{ $dev->started_at ? \Carbon\Carbon::parse($dev->started_at)->format('d M Y') : '—' }}
                                 </td>
-                                <td style="font-size:13px;">
+                                <td class="td-date" style="font-size:13px;">
                                     @if($dev->estimated_end_at)
                                         <span style="color:var(--silver-light);">{{ \Carbon\Carbon::parse($dev->estimated_end_at)->format('d M Y') }}</span>
                                     @else
@@ -197,10 +197,10 @@
                                     @endif
                                 </td>
                             @elseif($filter === 'mejora')
-                                <td style="color:var(--silver-light); font-size:13px;">
+                                <td class="td-date" style="color:var(--silver-light); font-size:13px;">
                                     {{ $dev->delivered_at ? \Carbon\Carbon::parse($dev->delivered_at)->format('d M Y') : '—' }}
                                 </td>
-                                <td style="font-size:13px;">
+                                <td class="td-date" style="font-size:13px;">
                                     @if($dev->paid_at)
                                         <span style="color:#48c78e;">{{ \Carbon\Carbon::parse($dev->paid_at)->format('d M Y') }}</span>
                                     @else
@@ -208,10 +208,10 @@
                                     @endif
                                 </td>
                             @elseif($filter === 'soporte')
-                                <td style="color:var(--silver-light); font-size:13px;">
+                                <td class="td-date" style="color:var(--silver-light); font-size:13px;">
                                     {{ $dev->started_at ? \Carbon\Carbon::parse($dev->started_at)->format('d M Y') : '—' }}
                                 </td>
-                                <td style="color:var(--silver-light); font-size:13px;">
+                                <td class="td-date" style="color:var(--silver-light); font-size:13px;">
                                     @if($dev->billing_cycle)
                                         <span class="badge-cycle {{ $dev->billing_cycle }}">{{ $dev->billing_cycle_label }}</span>
                                         @if($dev->contract_months)<span style="font-size:11px; color:rgba(255,255,255,0.35);"> × {{ $dev->contract_months }}</span>@endif
@@ -220,13 +220,13 @@
                                     @endif
                                 </td>
                             @else
-                                <td style="color:var(--silver-light); font-size:13px;">
+                                <td class="td-date" style="color:var(--silver-light); font-size:13px;">
                                     @php $mainDate = $dev->type === 'proyecto' || $dev->type === 'soporte' ? $dev->started_at : $dev->delivered_at; @endphp
                                     {{ $mainDate ? \Carbon\Carbon::parse($mainDate)->format('d M Y') : '—' }}
                                 </td>
                             @endif
 
-                            <td style="text-align:center;">
+                            <td class="td-actions" style="text-align:center;">
                                 <div class="actions-cell" style="justify-content:center;">
                                     <button type="button" class="btn-action edit" title="Editar"
                                         onclick="openEditDevModal(

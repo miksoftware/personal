@@ -52,7 +52,7 @@
 </div>
 
 {{-- ── Main Table Card ──────────────────────────────────── --}}
-<div class="client-table-card">
+<div class="client-table-card payments-view">
 
     {{-- Filter Bar --}}
     <div class="filter-bar">

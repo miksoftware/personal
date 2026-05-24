@@ -193,7 +193,7 @@
             <p style="margin-top:8px; font-size:13px;">Sin desarrollos registrados</p>
         </div>
     @else
-        <table class="custom-table">
+        <table class="custom-table stmt-table-devs">
             <thead>
                 <tr>
                     <th>Tipo</th>
@@ -276,7 +276,7 @@
             <p style="margin-top:8px; font-size:13px;">Sin pagos registrados</p>
         </div>
     @else
-        <table class="custom-table">
+        <table class="custom-table stmt-table-pays">
             <thead>
                 <tr>
                     <th>Fecha</th>

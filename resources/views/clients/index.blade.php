@@ -29,7 +29,7 @@
 @endif
 
 <!-- Main Card for List -->
-<div class="client-table-card">
+<div class="client-table-card clients-view">
     
     <!-- Filter bar (Search and Create Action) -->
     <div class="filter-bar">
