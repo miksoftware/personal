@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     
     <!-- Custom Theme Stylesheet -->
-    <link rel="stylesheet" href="{{ asset('css/auth-mik.css') }}">
+    <link rel="stylesheet" href="/css/auth-mik.css">
 </head>
 <body>
 
