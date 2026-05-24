@@ -2684,3 +2684,360 @@ body {
     border-color: rgba(196, 113, 74, 0.2);
     color: var(--salmon-light);
 }
+
+
+/* ══════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE — all table views → card layout
+   (max-width: 767px)
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Shared card row mixin (used via per-view selectors below) ── */
+
+/* ── Clients table ─────────────────────────────────────────────── */
+@media (max-width: 767px) {
+
+    .clients-view .table-responsive { overflow-x: visible; }
+    .clients-view .custom-table,
+    .clients-view .custom-table tbody { display: block; min-width: 0; }
+    .clients-view .custom-table thead { display: none; }
+
+    /* Grid card: tipo top-right, name top-left, model + phone, actions */
+    .clients-view .custom-table tbody tr {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        grid-template-areas:
+            "name  tipo"
+            "model phone"
+            ".     actions";
+        gap: 6px 10px;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 14px;
+        padding: 14px 16px 12px;
+        margin-bottom: 10px;
+    }
+
+    .clients-view .custom-table tbody td {
+        display: flex; align-items: center;
+        padding: 0; border: none; font-size: 13px;
+    }
+
+    /* col 1 — Tipo badge (top right) */
+    .clients-view .custom-table tbody td:nth-child(1) {
+        grid-area: tipo; justify-content: flex-end;
+    }
+    /* col 2 — Nombre (title) */
+    .clients-view .custom-table tbody td:nth-child(2) {
+        grid-area: name; font-weight: 700; font-size: 15px; color: var(--white);
+    }
+    /* col 3 — Modelo */
+    .clients-view .custom-table tbody td:nth-child(3) { grid-area: model; }
+    /* col 4 — Teléfono */
+    .clients-view .custom-table tbody td:nth-child(4) {
+        grid-area: phone; justify-content: flex-end; font-size: 12px;
+        color: rgba(255,255,255,0.45);
+    }
+    /* col 5 — Acciones */
+    .clients-view .custom-table tbody td:nth-child(5) {
+        grid-area: actions; justify-content: flex-end;
+        border-top: 1px solid rgba(255,255,255,0.05);
+        padding-top: 8px; margin-top: 2px;
+    }
+
+    .clients-view .custom-table .btn-action { width: 44px; height: 44px; font-size: 17px; border-radius: 12px; }
+    .clients-view .custom-table .actions-cell { gap: 8px; }
+
+    .clients-view .filter-bar { flex-direction: column; gap: 10px; padding: 14px 16px; }
+    .clients-view .filter-bar .search-wrapper { width: 100%; }
+    .clients-view .filter-bar .btn-primary-action { width: 100%; justify-content: center; }
+
+    .clients-view .pagination-wrapper { flex-direction: column; gap: 10px; align-items: flex-start; padding: 14px 16px; }
+}
+
+/* ── Developments table ────────────────────────────────────────── */
+@media (max-width: 767px) {
+
+    .devs-view .table-responsive { overflow-x: visible; }
+    .devs-view .custom-table,
+    .devs-view .custom-table tbody { display: block; min-width: 0; }
+    .devs-view .custom-table thead { display: none; }
+
+    /* Grid card: client + status top, title full, amount + actions bottom */
+    .devs-view .custom-table tbody tr {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        grid-template-areas:
+            "client  status"
+            "title   title"
+            "amount  actions";
+        gap: 6px 10px;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 14px;
+        padding: 14px 16px 12px;
+        margin-bottom: 10px;
+    }
+
+    /* Hide: type badge, license url, all date columns */
+    .devs-view .td-type,
+    .devs-view .td-license,
+    .devs-view .td-date { display: none !important; }
+
+    /* Shared reset for visible cells */
+    .devs-view .td-client,
+    .devs-view .td-title,
+    .devs-view .td-amount,
+    .devs-view .td-status,
+    .devs-view .td-actions {
+        display: flex; align-items: center;
+        padding: 0; border: none; font-size: 13px;
+    }
+
+    .devs-view .td-client {
+        grid-area: client;
+        font-weight: 700; font-size: 14px; color: var(--white);
+    }
+    .devs-view .td-status {
+        grid-area: status; justify-content: flex-end;
+    }
+    .devs-view .td-title {
+        grid-area: title;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        padding-bottom: 8px; margin-bottom: 2px;
+        flex-direction: column; align-items: flex-start;
+    }
+    .devs-view .td-title .dev-title { font-size: 13px; }
+    .devs-view .td-amount {
+        grid-area: amount;
+        border-top: 1px solid rgba(255,255,255,0.05);
+        padding-top: 8px; margin-top: 2px;
+    }
+    .devs-view .td-actions {
+        grid-area: actions; justify-content: flex-end;
+        border-top: 1px solid rgba(255,255,255,0.05);
+        padding-top: 8px; margin-top: 2px;
+    }
+
+    .devs-view .btn-action { width: 44px; height: 44px; font-size: 17px; border-radius: 12px; }
+    .devs-view .actions-cell { gap: 8px; }
+
+    /* Filter bar */
+    .devs-view .filter-bar { flex-direction: column; gap: 10px; padding: 14px 16px; }
+    .devs-view .filter-bar .search-wrapper { width: 100%; }
+    .devs-view .filter-bar > div { flex-direction: column; gap: 8px; width: 100%; }
+    .devs-view .filter-bar .btn-primary-action { width: 100%; justify-content: center; }
+
+    /* Type tabs: horizontal scroll so they don't wrap */
+    .devs-view .dev-type-tabs {
+        overflow-x: auto; flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+    .devs-view .dev-type-tabs::-webkit-scrollbar { display: none; }
+    .devs-view .dev-type-tab { white-space: nowrap; flex-shrink: 0; }
+
+    .devs-view .pagination-wrapper { flex-direction: column; gap: 10px; align-items: flex-start; padding: 14px 16px; }
+}
+
+/* ── Payments table ────────────────────────────────────────────── */
+@media (max-width: 767px) {
+
+    .payments-view .table-responsive { overflow-x: visible; }
+    .payments-view .custom-table,
+    .payments-view .custom-table tbody { display: block; min-width: 0; }
+    .payments-view .custom-table thead { display: none; }
+
+    /* Grid card: client + amount top, concept full, date + method, actions */
+    .payments-view .custom-table tbody tr {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        grid-template-areas:
+            "client  amount"
+            "concept concept"
+            "date    method"
+            ".       actions";
+        gap: 5px 10px;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 14px;
+        padding: 14px 16px 12px;
+        margin-bottom: 10px;
+    }
+
+    .payments-view .custom-table tbody td {
+        display: flex; align-items: center;
+        padding: 0; border: none; font-size: 13px;
+    }
+
+    /* Hide: Referencia (col 4) */
+    .payments-view .custom-table tbody td:nth-child(4) { display: none; }
+
+    /* col 1 — Fecha (small, muted) */
+    .payments-view .custom-table tbody td:nth-child(1) {
+        grid-area: date; font-size: 11px; color: rgba(255,255,255,0.35);
+    }
+    /* col 2 — Cliente (title) */
+    .payments-view .custom-table tbody td:nth-child(2) {
+        grid-area: client; font-weight: 700; font-size: 14px;
+    }
+    /* col 3 — Concepto */
+    .payments-view .custom-table tbody td:nth-child(3) {
+        grid-area: concept;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        padding-bottom: 6px; margin-bottom: 2px;
+        flex-direction: column; align-items: flex-start;
+    }
+    /* col 5 — Método */
+    .payments-view .custom-table tbody td:nth-child(5) {
+        grid-area: method; justify-content: flex-end;
+    }
+    /* col 6 — Monto (prominent) */
+    .payments-view .custom-table tbody td:nth-child(6) {
+        grid-area: amount; justify-content: flex-end;
+        font-weight: 700; font-size: 15px;
+    }
+    /* col 7 — Acciones */
+    .payments-view .custom-table tbody td:nth-child(7) {
+        grid-area: actions; justify-content: flex-end;
+        border-top: 1px solid rgba(255,255,255,0.05);
+        padding-top: 8px; margin-top: 2px;
+    }
+
+    .payments-view .custom-table .btn-action { width: 44px; height: 44px; font-size: 17px; border-radius: 12px; }
+    .payments-view .custom-table .actions-cell { gap: 8px; }
+
+    .payments-view .filter-bar { flex-direction: column; gap: 10px; padding: 14px 16px; }
+    .payments-view .filter-bar .search-wrapper { width: 100%; }
+    .payments-view .filter-bar .btn-primary-action { width: 100%; justify-content: center; }
+
+    .payments-view .pagination-wrapper { flex-direction: column; gap: 10px; align-items: flex-start; padding: 14px 16px; }
+}
+
+/* ── Report / Estado de Cuenta tables ──────────────────────────── */
+@media (max-width: 767px) {
+
+    /* ── Developments detail table (stmt-table-devs) ── */
+    .stmt-table-devs,
+    .stmt-table-devs tbody { display: block; min-width: 0; }
+    .stmt-table-devs thead { display: none; }
+
+    /* Grid: concept full, tipo + status, valor + pendiente */
+    .stmt-table-devs tbody tr {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        grid-template-areas:
+            "concept concept"
+            "tipo    status"
+            "valor   pendiente";
+        gap: 5px 10px;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 12px;
+        padding: 12px 16px;
+        margin-bottom: 8px;
+    }
+
+    .stmt-table-devs tbody td {
+        display: flex; align-items: center;
+        padding: 0; border: none; font-size: 13px;
+    }
+
+    /* col 1 — Tipo */
+    .stmt-table-devs tbody td:nth-child(1) { grid-area: tipo; }
+    /* col 2 — Concepto */
+    .stmt-table-devs tbody td:nth-child(2) {
+        grid-area: concept;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        padding-bottom: 6px; margin-bottom: 2px;
+        flex-direction: column; align-items: flex-start;
+    }
+    /* col 3 — Estado */
+    .stmt-table-devs tbody td:nth-child(3) { grid-area: status; justify-content: flex-end; }
+    /* col 4 — Valor */
+    .stmt-table-devs tbody td:nth-child(4) {
+        grid-area: valor;
+        border-top: 1px solid rgba(255,255,255,0.05);
+        padding-top: 6px; margin-top: 2px;
+        font-size: 12px; color: rgba(255,255,255,0.6);
+    }
+    /* col 4 pseudo-label */
+    .stmt-table-devs tbody td:nth-child(4)::before {
+        content: "Valor  ";
+        font-size: 10px; color: rgba(255,255,255,0.3);
+        text-transform: uppercase; letter-spacing: .4px;
+        margin-right: 6px; font-weight: 600;
+    }
+    /* col 5 — Abonado (hide, keep only pendiente) */
+    .stmt-table-devs tbody td:nth-child(5) { display: none; }
+    /* col 6 — Pendiente */
+    .stmt-table-devs tbody td:nth-child(6) {
+        grid-area: pendiente; justify-content: flex-end;
+        border-top: 1px solid rgba(255,255,255,0.05);
+        padding-top: 6px; margin-top: 2px;
+        font-weight: 700; font-size: 14px;
+    }
+
+    /* tfoot: single flex row with label + totals */
+    .stmt-table-devs tfoot { display: block; }
+    .stmt-table-devs tfoot tr {
+        display: flex; justify-content: space-between; align-items: center;
+        border-top: 2px solid rgba(255,255,255,0.1);
+        padding: 10px 4px 0;
+    }
+    .stmt-table-devs tfoot td {
+        display: flex; align-items: center;
+        border: none; padding: 0; font-size: 13px;
+    }
+    /* Hide abonado total (col 3) to match hidden body col */
+    .stmt-table-devs tfoot td:nth-child(3) { display: none; }
+
+    /* ── Payments history table (stmt-table-pays) ── */
+    .stmt-table-pays,
+    .stmt-table-pays tbody { display: block; min-width: 0; }
+    .stmt-table-pays thead { display: none; }
+
+    /* Grid: concept full, fecha + method, amount */
+    .stmt-table-pays tbody tr {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        grid-template-areas:
+            "concept concept"
+            "fecha   method"
+            ".       amount";
+        gap: 5px 10px;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 12px;
+        padding: 12px 16px;
+        margin-bottom: 8px;
+    }
+
+    .stmt-table-pays tbody td {
+        display: flex; align-items: center;
+        padding: 0; border: none; font-size: 13px;
+    }
+
+    /* col 1 — Fecha */
+    .stmt-table-pays tbody td:nth-child(1) {
+        grid-area: fecha; font-size: 11px; color: rgba(255,255,255,0.35);
+    }
+    /* col 2 — Concepto */
+    .stmt-table-pays tbody td:nth-child(2) {
+        grid-area: concept;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        padding-bottom: 6px; margin-bottom: 2px;
+    }
+    /* col 3 — Método */
+    .stmt-table-pays tbody td:nth-child(3) { grid-area: method; justify-content: flex-end; }
+    /* col 4 — Referencia (hide) */
+    .stmt-table-pays tbody td:nth-child(4) { display: none; }
+    /* col 5 — Notas (hide) */
+    .stmt-table-pays tbody td:nth-child(5) { display: none; }
+    /* col 6 — Monto (prominent) */
+    .stmt-table-pays tbody td:nth-child(6) {
+        grid-area: amount; justify-content: flex-end;
+        border-top: 1px solid rgba(255,255,255,0.05);
+        padding-top: 6px; margin-top: 2px;
+        font-weight: 700; font-size: 15px;
+    }
+}
