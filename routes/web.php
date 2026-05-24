@@ -7,6 +7,7 @@ use App\Http\Controllers\LicenseController;
 use App\Http\Controllers\DevelopmentController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\DatabaseImportController;
 use Illuminate\Support\Facades\Auth;
 
 // Redirect root URL
@@ -51,6 +52,10 @@ Route::middleware('auth')->group(function () {
     // Reports
     Route::get('/reports/estado-cuenta', [ReportController::class, 'index'])->name('reports.index');
     Route::get('/reports/estado-cuenta/{client}', [ReportController::class, 'show'])->name('reports.show');
+
+    // Database Import
+    Route::get('/db-import', [DatabaseImportController::class, 'index'])->name('db-import.index');
+    Route::post('/db-import', [DatabaseImportController::class, 'import'])->name('db-import.import');
 
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 });

@@ -130,6 +130,14 @@
                     </ul>
                 </li>
 
+                <!-- Importar Base de Datos -->
+                <li class="sidebar-menu-item">
+                    <a href="{{ route('db-import.index') }}" class="sidebar-menu-link {{ Route::is('db-import.*') ? 'active' : '' }}">
+                        <i class="bi bi-database-up"></i>
+                        <span>Importar BD</span>
+                    </a>
+                </li>
+
             </ul>
 
             <!-- Sidebar Profile Footer -->
