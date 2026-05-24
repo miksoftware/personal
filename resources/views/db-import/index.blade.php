@@ -13,37 +13,33 @@
     </div>
 </div>
 
-{{-- ── Success banner ──────────────────────────────────────────────── --}}
-@if(session('import_success'))
-<div style="margin-bottom:20px; padding:16px 20px; background:rgba(72,199,142,0.1); border:1px solid rgba(72,199,142,0.25); border-radius:12px; display:flex; align-items:flex-start; gap:12px;">
-    <i class="bi bi-check-circle-fill" style="color:#48c78e; font-size:20px; flex-shrink:0; margin-top:1px;"></i>
-    <div>
-        <p style="color:#48c78e; font-weight:600; margin:0 0 4px;">¡Importación exitosa!</p>
-        <p style="color:rgba(255,255,255,0.6); font-size:13px; margin:0;">
-            Se ejecutaron <strong style="color:var(--white);">{{ session('import_executed') }}</strong> sentencias INSERT
-            desde <strong style="color:var(--white);">{{ session('import_filename') }}</strong>.
-        </p>
-    </div>
-</div>
-@endif
-
-{{-- ── Error banner ─────────────────────────────────────────────────── --}}
-@if(session('import_failed'))
-<div style="margin-bottom:20px; padding:16px 20px; background:rgba(255,82,82,0.1); border:1px solid rgba(255,82,82,0.25); border-radius:12px;">
-    <div style="display:flex; align-items:flex-start; gap:12px; margin-bottom:{{ count(session('import_errors', [])) ? '12px' : '0' }};">
-        <i class="bi bi-x-circle-fill" style="color:#ff5252; font-size:20px; flex-shrink:0; margin-top:1px;"></i>
+{{-- ── Result banner ──────────────────────────────────────────────── --}}
+@if(session('import_done'))
+@php
+    $execCount  = session('import_executed', 0);
+    $errCount   = count(session('import_errors', []));
+    $skipTables = session('import_skipped', []);
+@endphp
+<div style="margin-bottom:20px; padding:16px 20px; background:rgba(72,199,142,0.1); border:1px solid rgba(72,199,142,0.25); border-radius:12px;">
+    <div style="display:flex; align-items:flex-start; gap:12px; margin-bottom: {{ ($errCount || count($skipTables)) ? '12px' : '0' }};">
+        <i class="bi bi-check-circle-fill" style="color:#48c78e; font-size:20px; flex-shrink:0; margin-top:1px;"></i>
         <div>
-            <p style="color:#ff5252; font-weight:600; margin:0 0 4px;">Importación fallida</p>
-            <p style="color:rgba(255,255,255,0.6); font-size:13px; margin:0;">
-                {{ session('import_message') }}
-                ({{ session('import_executed', 0) }} sentencias completadas antes del error)
+            <p style="color:#48c78e; font-weight:600; margin:0 0 4px;">
+                Importación completada — {{ $execCount }} sentencias ejecutadas
+                @if($errCount) <span style="color:#ffb74d; font-weight:400; font-size:13px;">({{ $errCount }} con error)</span> @endif
+            </p>
+            <p style="color:rgba(255,255,255,0.5); font-size:13px; margin:0;">
+                Archivo: <strong style="color:var(--white);">{{ session('import_filename') }}</strong>
+                @if(count($skipTables))
+                    &nbsp;·&nbsp; Tablas omitidas: <strong style="color:rgba(255,255,255,0.6);">{{ implode(', ', $skipTables) }}</strong>
+                @endif
             </p>
         </div>
     </div>
-    @if(count(session('import_errors', [])) > 0)
-    <div style="background:rgba(0,0,0,0.2); border-radius:8px; padding:12px; max-height:200px; overflow-y:auto;">
+    @if($errCount)
+    <div style="background:rgba(0,0,0,0.25); border-radius:8px; padding:12px; max-height:180px; overflow-y:auto;">
         @foreach(session('import_errors') as $err)
-            <p style="color:rgba(255,180,180,0.8); font-size:12px; font-family:monospace; margin:0 0 4px;">{{ $err }}</p>
+            <p style="color:rgba(255,180,130,0.85); font-size:11px; font-family:monospace; margin:0 0 3px; line-height:1.5;">{{ $err }}</p>
         @endforeach
     </div>
     @endif
@@ -59,13 +55,24 @@
 {{-- ── Upload card ──────────────────────────────────────────────────── --}}
 <div class="client-table-card" style="max-width:680px; padding:32px 36px;">
 
+    {{-- Allowed tables notice --}}
+    <div style="display:flex; align-items:flex-start; gap:12px; padding:14px 16px; background:rgba(77,208,225,0.07); border:1px solid rgba(77,208,225,0.2); border-radius:10px; margin-bottom:16px;">
+        <i class="bi bi-funnel-fill" style="color:#4dd0e1; font-size:17px; flex-shrink:0; margin-top:2px;"></i>
+        <div style="font-size:13px; color:rgba(255,255,255,0.7); line-height:1.7;">
+            <strong style="color:#4dd0e1;">Solo se importan datos de las tablas:</strong>
+            @foreach($allowedTables as $t)
+                <span style="display:inline-block; background:rgba(77,208,225,0.1); border:1px solid rgba(77,208,225,0.2); border-radius:5px; padding:1px 8px; font-size:12px; color:#80deea; margin:2px 3px; font-family:monospace;">{{ $t }}</span>
+            @endforeach
+            <br>Los INSERT de <code style="color:rgba(255,255,255,0.35);">migrations</code>, <code style="color:rgba(255,255,255,0.35);">users</code> y otras tablas del sistema se omiten automáticamente.
+        </div>
+    </div>
+
     {{-- Warning notice --}}
     <div style="display:flex; align-items:flex-start; gap:12px; padding:14px 16px; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.25); border-radius:10px; margin-bottom:28px;">
         <i class="bi bi-exclamation-triangle-fill" style="color:#f59e0b; font-size:18px; flex-shrink:0; margin-top:1px;"></i>
         <div style="font-size:13px; color:rgba(255,255,255,0.7); line-height:1.6;">
-            <strong style="color:#f59e0b;">Solo se ejecutan sentencias INSERT INTO.</strong>
-            Las sentencias CREATE, DROP, ALTER, SET y similares son ignoradas automáticamente.
-            La importación se realiza dentro de una transacción: si ocurre algún error se revierte todo.
+            <strong style="color:#f59e0b;">Solo INSERT INTO.</strong>
+            CREATE, DROP, ALTER y SET son ignorados. Los errores individuales no cancelan el resto de la importación.
         </div>
     </div>
 
