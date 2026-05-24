@@ -2372,11 +2372,116 @@ body {
     .rpt-global-divider { display: none; }
 }
 
+/* ── Mobile: licenses table → card layout ─────────────────────── */
+@media (max-width: 767px) {
 
-    font-weight: 700;
-    font-size: 14px;
-    color: var(--white);
-    letter-spacing: 0.2px;
+    .licenses-view .table-responsive { overflow-x: visible; }
+
+    /* Turn the table into block so each row is a card */
+    .licenses-view .custom-table,
+    .licenses-view .custom-table tbody { display: block; min-width: 0; }
+    .licenses-view .custom-table thead { display: none; }
+
+    /* Each <tr> becomes a CSS grid card */
+    .licenses-view .custom-table tbody tr {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        grid-template-areas:
+            "client  status"
+            "url     url"
+            "tarifa  actions";
+        gap: 6px 10px;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 14px;
+        padding: 14px 16px 12px;
+        margin-bottom: 10px;
+    }
+
+    /* Hide: token (3), ciclo (5), próx. facturación (7) */
+    .licenses-view .custom-table tbody td:nth-child(3),
+    .licenses-view .custom-table tbody td:nth-child(5),
+    .licenses-view .custom-table tbody td:nth-child(7) { display: none; }
+
+    /* All visible tds: reset table defaults */
+    .licenses-view .custom-table tbody td {
+        display: flex;
+        align-items: center;
+        padding: 0;
+        border: none;
+        font-size: 13px;
+    }
+
+    /* col 1 — Cliente: card title */
+    .licenses-view .custom-table tbody td:nth-child(1) {
+        grid-area: client;
+        font-weight: 700;
+        font-size: 15px;
+        color: var(--white);
+        align-items: center;
+    }
+
+    /* col 2 — URL */
+    .licenses-view .custom-table tbody td:nth-child(2) {
+        grid-area: url;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        padding-bottom: 8px;
+        margin-bottom: 2px;
+    }
+    .licenses-view .custom-table tbody td:nth-child(2) .license-url {
+        white-space: normal;
+        word-break: break-all;
+        max-width: none;
+        color: rgba(255,255,255,0.45);
+        font-size: 12px;
+    }
+
+    /* col 4 — Estado */
+    .licenses-view .custom-table tbody td:nth-child(4) {
+        grid-area: status;
+        justify-content: flex-end;
+    }
+
+    /* col 6 — Tarifa */
+    .licenses-view .custom-table tbody td:nth-child(6) {
+        grid-area: tarifa;
+        border-top: 1px solid rgba(255,255,255,0.05);
+        padding-top: 10px;
+        margin-top: 2px;
+    }
+
+    /* col 8 — Acciones: big tap targets */
+    .licenses-view .custom-table tbody td:nth-child(8) {
+        grid-area: actions;
+        justify-content: flex-end;
+        border-top: 1px solid rgba(255,255,255,0.05);
+        padding-top: 8px;
+        margin-top: 2px;
+    }
+    .licenses-view .custom-table .btn-action {
+        width: 44px;
+        height: 44px;
+        font-size: 17px;
+        border-radius: 12px;
+    }
+    .licenses-view .custom-table .actions-cell { gap: 8px; }
+
+    /* Filter bar: stack vertically on mobile */
+    .licenses-view .filter-bar {
+        flex-direction: column;
+        gap: 10px;
+        padding: 14px 16px;
+    }
+    .licenses-view .filter-bar .search-wrapper { width: 100%; }
+    .licenses-view .filter-bar .btn-primary-action { width: 100%; justify-content: center; }
+
+    /* Pagination: stack on mobile */
+    .licenses-view .pagination-wrapper {
+        flex-direction: column;
+        gap: 10px;
+        align-items: flex-start;
+        padding: 14px 16px;
+    }
 }
 
 /* Development title cell */

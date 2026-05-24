@@ -28,7 +28,7 @@
 @endif
 
 {{-- ── Main Table Card ──────────────────────────────────────────── --}}
-<div class="client-table-card">
+<div class="client-table-card licenses-view">
 
     {{-- Filter Bar --}}
     <div class="filter-bar">
