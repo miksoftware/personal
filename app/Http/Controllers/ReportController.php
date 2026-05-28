@@ -46,6 +46,7 @@ class ReportController extends Controller
         $developments = $client->developments()->orderBy('created_at', 'asc')->get();
         $payments     = $client->payments()->with('development')->orderBy('payment_date', 'asc')->get();
         $loans        = \App\Models\Loan::where('client_id', $client->id)->orderBy('loan_date', 'asc')->get();
+        $credits      = \App\Models\Credit::where('client_id', $client->id)->withSum('payments', 'amount')->orderBy('credit_date', 'asc')->get();
 
         $totalDebt   = (float) $developments->sum('amount') + (float) $loans->where('type', 'entregado')->sum('amount');
         $totalPaid   = (float) $payments->sum('amount') + (float) $loans->where('type', 'recibido')->sum('amount');
@@ -79,9 +80,6 @@ class ReportController extends Controller
             }
         });
 
-        // Restore original order for display if needed, but usually chronological is fine
-        // $developments = $developments->sortBy('type'); 
-
         // Subtotals by development type
         $proyectosTotal = (float) $developments->where('type', 'proyecto')->sum('amount');
         $mejorasTotal   = (float) $developments->where('type', 'mejora')->sum('amount');
@@ -100,9 +98,11 @@ class ReportController extends Controller
         // Sort back for the view to match user's expected visual
         $developments = $developments->sortByDesc('created_at');
         $payments     = $payments->sortByDesc('payment_date');
+        $loans        = $loans->sortByDesc('loan_date');
+        $credits      = $credits->sortByDesc('credit_date');
 
         return view('reports.show', compact(
-            'client', 'developments', 'payments',
+            'client', 'developments', 'payments', 'loans', 'credits',
             'totalDebt', 'totalPaid', 'balance', 'progressPct',
             'proyectosTotal', 'mejorasTotal', 'byMethod',
             'completedAmount', 'completedCount', 'inProgressAmount', 'inProgressCount'

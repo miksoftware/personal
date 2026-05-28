@@ -262,6 +262,99 @@
     @endif
 </div>
 
+{{-- ── Loans Table ───────────────────────────────── --}}
+@if($loans->isNotEmpty())
+<div class="stmt-section" style="margin-top: 30px;">
+    <div class="stmt-section-header">
+        <h3><i class="bi bi-hand-thumbs-up" style="color:#42a5f5;"></i> Detalle de Préstamos</h3>
+        <span style="font-size:12px; color:rgba(255,255,255,0.4);">{{ $loans->count() }} registros</span>
+    </div>
+    <table class="custom-table">
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Descripción</th>
+                <th>Estado</th>
+                <th style="text-align:right;">Valor</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($loans as $loan)
+                <tr>
+                    <td style="color:var(--silver-light); font-size:13px;">
+                        {{ \Carbon\Carbon::parse($loan->loan_date)->format('d/m/Y') }}
+                    </td>
+                    <td>
+                        <span style="font-size:12px; color:{{ $loan->type === 'recibido' ? '#ff9800' : '#42a5f5' }};">
+                            {{ $loan->type_label }}
+                        </span>
+                    </td>
+                    <td style="font-size:13px; color:var(--white);">{{ $loan->description }}</td>
+                    <td>
+                        <span class="badge-status {{ $loan->status === 'pendiente' ? 'pendiente' : ($loan->status === 'devuelto' ? 'activa' : 'suspendida') }}">
+                            {{ $loan->status_label }}
+                        </span>
+                    </td>
+                    <td style="text-align:right; font-weight:700; color:{{ $loan->type === 'recibido' ? '#48c78e' : '#ff5252' }};">
+                        {{ $loan->type === 'recibido' ? '+' : '-' }}${{ number_format($loan->amount, 2) }}
+                    </td>
+                </tr>
+            @endforeach
+        </tbody>
+    </table>
+</div>
+@endif
+
+{{-- ── Credits Table ───────────────────────────────── --}}
+@if($credits->isNotEmpty())
+<div class="stmt-section" style="margin-top: 30px;">
+    <div class="stmt-section-header">
+        <h3><i class="bi bi-credit-card-2-front" style="color:#ff9800;"></i> Créditos (Mis deudas con este cliente)</h3>
+        <span style="font-size:12px; color:rgba(255,255,255,0.4);">{{ $credits->count() }} registros</span>
+    </div>
+    <table class="custom-table">
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Descripción / Acreedor</th>
+                <th>Estado</th>
+                <th style="text-align:right;">Total</th>
+                <th style="text-align:right;">Abonado</th>
+                <th style="text-align:right;">Saldo</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($credits as $credit)
+                <tr>
+                    <td style="color:var(--silver-light); font-size:13px;">
+                        {{ \Carbon\Carbon::parse($credit->credit_date)->format('d/m/Y') }}
+                    </td>
+                    <td>
+                        <div style="font-weight:600; font-size:13px;">{{ $credit->description }}</div>
+                        <div style="font-size:11px; color:rgba(255,255,255,0.35);">{{ $credit->creditor_name }}</div>
+                    </td>
+                    <td>
+                        <span class="badge-credit-status {{ $credit->status }}">
+                            {{ $credit->status_label }}
+                        </span>
+                    </td>
+                    <td style="text-align:right; color:var(--white); font-weight:600;">
+                        ${{ number_format($credit->total_amount, 2) }}
+                    </td>
+                    <td style="text-align:right; color:#48c78e; font-weight:600;">
+                        ${{ number_format($credit->payments_sum_amount ?? 0, 2) }}
+                    </td>
+                    <td style="text-align:right; font-weight:700; color:#ff5252;">
+                        ${{ number_format($credit->total_amount - ($credit->payments_sum_amount ?? 0), 2) }}
+                    </td>
+                </tr>
+            @endforeach
+        </tbody>
+    </table>
+</div>
+@endif
+
 {{-- ── Payment History ──────────────────────────────────── --}}
 <div class="stmt-section">
     <div class="stmt-section-header">
