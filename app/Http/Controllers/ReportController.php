@@ -69,7 +69,11 @@ class ReportController extends Controller
         $developments = $client->developments()->orderBy('created_at', 'asc')->get();
         $payments     = $client->payments()->with('development')->orderBy('payment_date', 'asc')->get();
         $loans        = \App\Models\Loan::where('client_id', $client->id)->orderBy('loan_date', 'asc')->get();
-        $credits      = \App\Models\Credit::where('client_id', $client->id)->withSum('payments', 'amount')->orderBy('credit_date', 'asc')->get();
+        $credits      = \App\Models\Credit::where('client_id', $client->id)
+            ->with(['payments' => fn($q) => $q->orderBy('payment_date', 'desc')])
+            ->withSum('payments', 'amount')
+            ->orderBy('credit_date', 'asc')
+            ->get();
 
         $totalDebt   = (float) $developments->sum('amount') + (float) $loans->where('type', 'entregado')->sum('amount');
         $totalPaid   = (float) $payments->sum('amount') + (float) $loans->where('type', 'recibido')->sum('amount');

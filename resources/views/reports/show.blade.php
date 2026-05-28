@@ -331,6 +331,20 @@
                     <td>
                         <div style="font-weight:600; font-size:13px;">{{ $credit->description }}</div>
                         <div style="font-size:11px; color:rgba(255,255,255,0.35);">{{ $credit->creditor_name }}</div>
+                        
+                        {{-- Detalle de abonos --}}
+                        @if($credit->payments->isNotEmpty())
+                            <div style="margin-top:8px; border-top:1px solid rgba(255,255,255,0.05); padding-top:5px;">
+                                @foreach($credit->payments as $cp)
+                                    <div style="font-size:11px; color:rgba(255,255,255,0.4); display:flex; gap:6px; align-items:center; margin-bottom:2px;">
+                                        <i class="bi bi-arrow-return-right" style="font-size:10px;"></i>
+                                        <span>{{ \Carbon\Carbon::parse($cp->payment_date)->format('d/m/Y') }}:</span>
+                                        <strong style="color:var(--silver);">{{ $cp->concept }}</strong>
+                                        <span style="color:#48c78e; font-weight:600;">(${{ number_format($cp->amount, 2) }})</span>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
                     </td>
                     <td>
                         <span class="badge-credit-status {{ $credit->status }}">
@@ -353,79 +367,60 @@
 </div>
 @endif
 
-{{-- ── Payment History ──────────────────────────────────── --}}
-<div class="stmt-section">
+{{-- ── Payments Table ───────────────────────────────────── --}}
+@if($payments->isNotEmpty())
+<div class="stmt-section" style="margin-top: 30px;">
     <div class="stmt-section-header">
-        <h3><i class="bi bi-cash-stack" style="color:#48c78e;"></i> Historial de Pagos y Abonos</h3>
-        <span style="font-size:12px; color:rgba(255,255,255,0.4);">
-            Total: <strong style="color:#48c78e;">${{ number_format($totalPaid, 2, '.', ',') }}</strong>
-        </span>
+        <h3><i class="bi bi-cash-stack" style="color:#48c78e;"></i> Historial de Pagos y Abonos (Recibidos)</h3>
+        <span style="font-size:12px; color:rgba(255,255,255,0.4);">{{ $payments->count() }} registros</span>
     </div>
-
-    @if($payments->isEmpty())
-        <div style="padding:40px; text-align:center; color:rgba(255,255,255,0.3);">
-            <i class="bi bi-receipt" style="font-size:30px;"></i>
-            <p style="margin-top:8px; font-size:13px;">Sin pagos registrados</p>
-        </div>
-    @else
-        <table class="custom-table stmt-table-pays">
-            <thead>
+    <table class="custom-table">
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Concepto / Destino</th>
+                <th>Método</th>
+                <th>Referencia</th>
+                <th style="text-align:right;">Monto</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($payments as $p)
                 <tr>
-                    <th>Fecha</th>
-                    <th>Destino / Concepto</th>
-                    <th>Método</th>
-                    <th>Referencia</th>
-                    <th>Notas</th>
-                    <th style="text-align:right;">Monto</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($payments as $pay)
-                    <tr>
-                        <td style="color:var(--silver-light); font-size:13px; white-space:nowrap;">
-                            {{ \Carbon\Carbon::parse($pay->payment_date)->format('d/m/Y') }}
-                        </td>
-                        <td>
-                            @if($pay->development)
-                                <span style="font-weight:600; font-size:13px; display:block;">
-                                    {{ $pay->development->title }}
-                                </span>
-                                <span class="badge-type {{ $pay->development->type }}" style="font-size:9px; padding:1px 6px;">
-                                    {{ $pay->development->type_label }}
-                                </span>
-                            @else
-                                <span style="font-weight:600; color:rgba(255,255,255,0.5);">Cuenta Global</span>
-                                <span style="font-size:11px; color:rgba(255,255,255,0.3); display:block;">Abono general</span>
-                            @endif
-                        </td>
-                        <td>
-                            <span class="badge-method {{ $pay->method }}">{{ $pay->method_label }}</span>
-                        </td>
-                        <td style="font-size:12px; color:var(--silver-light);">
-                            {{ $pay->reference ?: '—' }}
-                        </td>
-                        <td style="font-size:12px; color:var(--silver-light); max-width:200px;">
-                            {{ $pay->notes ?: '—' }}
-                        </td>
-                        <td style="text-align:right;">
-                            <span class="payment-amount">${{ number_format($pay->amount, 2, '.', ',') }}</span>
-                        </td>
-                    </tr>
-                @endforeach
-            </tbody>
-            <tfoot>
-                <tr style="border-top:2px solid rgba(255,255,255,0.1);">
-                    <td colspan="5" style="font-weight:700; color:rgba(255,255,255,0.7); font-size:12px; text-transform:uppercase; letter-spacing:.4px;">
-                        TOTAL RECAUDADO
+                    <td style="color:var(--silver-light); font-size:13px;">
+                        {{ \Carbon\Carbon::parse($p->payment_date)->format('d/m/Y') }}
                     </td>
-                    <td style="text-align:right; font-weight:800; color:#48c78e; font-size:15px;">
-                        ${{ number_format($totalPaid, 2, '.', ',') }}
+                    <td>
+                        <div style="font-weight:600; font-size:13px;">
+                            {{ $p->development ? 'Desarrollo: ' . $p->development->title : 'Abono general' }}
+                        </div>
+                        @if($p->notes)
+                            <div style="font-size:11px; color:rgba(255,255,255,0.35);">{{ $p->notes }}</div>
+                        @endif
+                    </td>
+                    <td>
+                        <span class="badge-status activa" style="background:rgba(72,199,142,0.1); color:#48c78e; border:1px solid rgba(72,199,142,0.2);">
+                            {{ ucfirst($p->method) }}
+                        </span>
+                    </td>
+                    <td style="color:var(--silver-light); font-size:13px;">{{ $p->reference ?: '—' }}</td>
+                    <td style="text-align:right; font-weight:700; color:#48c78e; font-size:15px;">
+                        ${{ number_format($p->amount, 2) }}
                     </td>
                 </tr>
-            </tfoot>
-        </table>
-    @endif
+            @endforeach
+        </tbody>
+        <tfoot>
+            <tr style="border-top:2px solid rgba(255,255,255,0.1);">
+                <td colspan="4" style="text-align:left; font-weight:800; color:var(--white); font-size:12px; text-transform:uppercase; letter-spacing:1px; padding:20px 15px;">TOTAL PAGOS RECIBIDOS</td>
+                <td style="text-align:right; font-weight:800; color:#48c78e; font-size:16px;">
+                    ${{ number_format($payments->sum('amount'), 2) }}
+                </td>
+            </tr>
+        </tfoot>
+    </table>
 </div>
+@endif
 
 {{-- ── Print-only footer ────────────────────────────────── --}}
 <div class="print-only" style="margin-top:30px; text-align:center; font-size:11px; color:rgba(255,255,255,0.4); border-top:1px solid rgba(255,255,255,0.1); padding-top:12px;">

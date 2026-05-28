@@ -117,6 +117,13 @@
             background-color: #f8f9fa;
             font-weight: bold;
         }
+        .credit-payment-detail {
+            font-size: 9px;
+            color: #7f8c8d;
+            margin-top: 4px;
+            padding-left: 10px;
+            border-left: 1px solid #eee;
+        }
     </style>
 </head>
 <body>
@@ -230,32 +237,77 @@
     @endif
 
     @if($credits->isNotEmpty())
-        <div class="section-title">Créditos Vinculados (Mis Deudas)</div>
+        <div class="section-title">Créditos Vinculados (Mis Deudas con {{ $client->name }})</div>
         <table class="table">
             <thead>
                 <tr>
-                    <th>Fecha</th>
-                    <th>Acreedor</th>
-                    <th>Descripción</th>
-                    <th>Estado</th>
-                    <th class="text-right">Total</th>
-                    <th class="text-right">Abonado</th>
-                    <th class="text-right">Saldo</th>
+                    <th style="width: 80px;">Fecha</th>
+                    <th>Acreedor / Detalle de Abonos</th>
+                    <th style="width: 80px;">Estado</th>
+                    <th class="text-right" style="width: 80px;">Total</th>
+                    <th class="text-right" style="width: 80px;">Abonado</th>
+                    <th class="text-right" style="width: 80px;">Saldo</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach($credits as $credit)
                     <tr>
-                        <td>{{ \Carbon\Carbon::parse($credit->credit_date)->format('d/m/Y') }}</td>
-                        <td>{{ $credit->creditor_name }}</td>
-                        <td>{{ $credit->description }}</td>
-                        <td>{{ $credit->status_label }}</td>
-                        <td class="text-right">${{ number_format($credit->total_amount, 2) }}</td>
-                        <td class="text-right">${{ number_format($credit->payments_sum_amount ?? 0, 2) }}</td>
-                        <td class="text-right font-bold">${{ number_format($credit->total_amount - ($credit->payments_sum_amount ?? 0), 2) }}</td>
+                        <td style="vertical-align: top;">{{ \Carbon\Carbon::parse($credit->credit_date)->format('d/m/Y') }}</td>
+                        <td>
+                            <div style="font-weight: bold;">{{ $credit->description }}</div>
+                            <div style="font-size: 9px; color: #7f8c8d; margin-bottom: 5px;">Acreedor: {{ $credit->creditor_name }}</div>
+                            
+                            @if($credit->payments->isNotEmpty())
+                                @foreach($credit->payments as $cp)
+                                    <div class="credit-payment-detail">
+                                        • {{ \Carbon\Carbon::parse($cp->payment_date)->format('d/m/Y') }}: 
+                                        <strong>${{ number_format($cp->amount, 2) }}</strong> 
+                                        ({{ $cp->concept }})
+                                    </div>
+                                @endforeach
+                            @endif
+                        </td>
+                        <td style="vertical-align: top;">{{ $credit->status_label }}</td>
+                        <td class="text-right" style="vertical-align: top;">${{ number_format($credit->total_amount, 2) }}</td>
+                        <td class="text-right" style="vertical-align: top; color: #27ae60;">${{ number_format($credit->payments_sum_amount ?? 0, 2) }}</td>
+                        <td class="text-right font-bold" style="vertical-align: top; color: #e74c3c;">${{ number_format($credit->total_amount - ($credit->payments_sum_amount ?? 0), 2) }}</td>
                     </tr>
                 @endforeach
             </tbody>
+        </table>
+    @endif
+
+    @if($payments->isNotEmpty())
+        <div class="section-title">Historial de Pagos y Abonos (Recibidos de {{ $client->name }})</div>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Concepto / Referencia</th>
+                    <th>Método</th>
+                    <th class="text-right">Monto</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($payments as $p)
+                    <tr>
+                        <td>{{ \Carbon\Carbon::parse($p->payment_date)->format('d/m/Y') }}</td>
+                        <td>
+                            <div style="font-weight: bold;">{{ $p->development ? 'Desarrollo: ' . $p->development->title : 'Abono general' }}</div>
+                            @if($p->notes) <div style="font-size: 9px; color: #7f8c8d;">{{ $p->notes }}</div> @endif
+                            @if($p->reference) <div style="font-size: 9px; color: #7f8c8d;">Ref: {{ $p->reference }}</div> @endif
+                        </td>
+                        <td>{{ ucfirst($p->method) }}</td>
+                        <td class="text-right font-bold" style="color: #27ae60;">${{ number_format($p->amount, 2) }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+            <tfoot>
+                <tr class="total-row">
+                    <td colspan="3">TOTAL PAGOS RECIBIDOS</td>
+                    <td class="text-right">${{ number_format($payments->sum('amount'), 2) }}</td>
+                </tr>
+            </tfoot>
         </table>
     @endif
 
