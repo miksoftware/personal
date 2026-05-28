@@ -61,6 +61,7 @@
                         <th>Token Bloqueo</th>
                         <th>Estado</th>
                         <th>Ciclo</th>
+                        <th>Instalación</th>
                         <th>Tarifa Mensual</th>
                         <th>Próx. Facturación</th>
                         <th style="width:90px; text-align:center;">Acciones</th>
@@ -97,6 +98,13 @@
                                 <span class="badge-cycle">{{ $license->billing_cycle_label }}</span>
                             </td>
 
+                            {{-- Setup Fee --}}
+                            <td>
+                                <span style="font-weight:600; color:var(--salmon);">
+                                    ${{ number_format($license->setup_fee, 2) }}
+                                </span>
+                            </td>
+
                             {{-- Monthly Fee --}}
                             <td>
                                 @if($license->is_free)
@@ -130,6 +138,7 @@
                                             '{{ addslashes($license->block_token) }}',
                                             '{{ $license->status }}',
                                             '{{ $license->billing_cycle }}',
+                                            '{{ $license->setup_fee }}',
                                             '{{ $license->monthly_fee }}',
                                             '{{ $license->next_billing_date }}',
                                             {{ $license->is_free ? 'true' : 'false' }}
@@ -268,10 +277,24 @@
                 </div>
             </div>
 
-            {{-- Two columns: Monthly Fee + Next Billing Date --}}
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            {{-- Three columns: Setup Fee + Monthly Fee + Next Billing Date --}}
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
                 <div class="form-group">
-                    <label for="create_monthly_fee" class="form-label">Tarifa Mensual ($)</label>
+                    <label for="create_setup_fee" class="form-label">Instalación ($)</label>
+                    <input
+                        type="number"
+                        name="setup_fee"
+                        id="create_setup_fee"
+                        class="form-input"
+                        placeholder="0.00"
+                        step="0.01"
+                        min="0"
+                        value="{{ old('setup_fee', 0) }}"
+                        required
+                    >
+                </div>
+                <div class="form-group">
+                    <label for="create_monthly_fee" class="form-label">Mensualidad ($)</label>
                     <input
                         type="number"
                         name="monthly_fee"
@@ -285,7 +308,7 @@
                     >
                 </div>
                 <div class="form-group">
-                    <label for="create_next_billing_date" class="form-label">Próxima Facturación</label>
+                    <label for="create_next_billing_date" class="form-label">Próx. Factura</label>
                     <input
                         type="date"
                         name="next_billing_date"
@@ -372,13 +395,17 @@
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
                 <div class="form-group">
-                    <label for="edit_monthly_fee" class="form-label">Tarifa Mensual ($)</label>
+                    <label for="edit_setup_fee" class="form-label">Instalación ($)</label>
+                    <input type="number" name="setup_fee" id="edit_setup_fee" class="form-input" step="0.01" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit_monthly_fee" class="form-label">Mensualidad ($)</label>
                     <input type="number" name="monthly_fee" id="edit_monthly_fee" class="form-input" step="0.01" min="0" required>
                 </div>
                 <div class="form-group">
-                    <label for="edit_next_billing_date" class="form-label">Próxima Facturación</label>
+                    <label for="edit_next_billing_date" class="form-label">Próx. Factura</label>
                     <input type="date" name="next_billing_date" id="edit_next_billing_date" class="form-input" required>
                 </div>
             </div>
@@ -547,7 +574,7 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 // ── Global: open Edit Modal populated with license data ──────────
-function openEditLicenseModal(id, clientId, url, token, status, billingCycle, monthlyFee, nextBillingDate, isFree) {
+function openEditLicenseModal(id, clientId, url, token, status, billingCycle, setupFee, monthlyFee, nextBillingDate, isFree) {
     const modal    = document.getElementById('editLicenseModal');
     const form     = document.getElementById('editLicenseForm');
     const freeNote = document.getElementById('editFreeNote');
@@ -559,6 +586,7 @@ function openEditLicenseModal(id, clientId, url, token, status, billingCycle, mo
     document.getElementById('edit_block_token').value       = token;
     document.getElementById('edit_status').value            = status;
     document.getElementById('edit_billing_cycle').value     = billingCycle;
+    document.getElementById('edit_setup_fee').value         = setupFee;
     document.getElementById('edit_next_billing_date').value = nextBillingDate;
     feeInput.value                                          = monthlyFee;
 

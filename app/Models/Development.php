@@ -36,26 +36,33 @@ class Development extends Model
 
     public function getStatusLabelAttribute(): string
     {
+        $status = $this->status;
+
+        // Dynamic status check for improvements
+        if ($this->type === 'mejora' && $status === 'pendiente' && isset($this->is_dynamically_paid) && $this->is_dynamically_paid) {
+            $status = 'pagado';
+        }
+
         if ($this->type === 'proyecto') {
-            return match ($this->status) {
+            return match ($status) {
                 'pendiente'  => 'En Proceso',
                 'completado' => 'Completado',
-                default      => ucfirst($this->status),
+                default      => ucfirst($status),
             };
         }
 
         if ($this->type === 'soporte') {
-            return match ($this->status) {
+            return match ($status) {
                 'pendiente'  => 'Activo',
                 'completado' => 'Finalizado',
-                default      => ucfirst($this->status),
+                default      => ucfirst($status),
             };
         }
 
-        return match ($this->status) {
+        return match ($status) {
             'pendiente' => 'Pendiente de pago',
             'pagado'    => 'Pagado',
-            default     => ucfirst($this->status),
+            default     => ucfirst($status),
         };
     }
 

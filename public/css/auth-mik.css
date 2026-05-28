@@ -3041,3 +3041,118 @@ body {
         font-weight: 700; font-size: 15px;
     }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   CREDITS MODULE
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Progress Bar ─────────────────────────────────────────────── */
+.credit-progress-bar {
+    height: 8px;
+    background: rgba(255,255,255,0.07);
+    border-radius: 99px;
+    overflow: hidden;
+    position: relative;
+}
+
+.credit-progress-fill {
+    height: 100%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, #ff9800, #48c78e);
+    transition: width .8s cubic-bezier(0.22, 1, 0.36, 1);
+    min-width: 3px;
+    position: relative;
+}
+
+.credit-progress-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255,255,255,0.15) 50%,
+        transparent 100%
+    );
+    animation: creditShimmer 2.5s infinite;
+}
+
+@keyframes creditShimmer {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+/* ── Status Badge ─────────────────────────────────────────────── */
+.badge-credit-status {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.badge-credit-status.activo {
+    background: rgba(255,152,0,0.12);
+    color: #ffb74d;
+    border: 1px solid rgba(255,152,0,0.25);
+}
+
+.badge-credit-status.pagado {
+    background: rgba(72,199,142,0.12);
+    color: #48c78e;
+    border: 1px solid rgba(72,199,142,0.25);
+}
+
+.badge-credit-status.cancelado {
+    background: rgba(239,83,80,0.12);
+    color: #ef5350;
+    border: 1px solid rgba(239,83,80,0.25);
+}
+
+/* ── Detail Header Card ───────────────────────────────────────── */
+.credit-detail-header {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 22px 24px;
+    position: relative;
+    overflow: hidden;
+}
+
+.credit-detail-header::before {
+    content: '';
+    position: absolute;
+    top: -40px;
+    right: -40px;
+    width: 180px;
+    height: 180px;
+    background: radial-gradient(circle, rgba(255,152,0,0.08), transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.credit-detail-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+/* ── View Button ──────────────────────────────────────────────── */
+.btn-action.view {
+    background: rgba(66,165,245,0.1);
+    color: #42a5f5;
+    border: 1px solid rgba(66,165,245,0.2);
+}
+
+.btn-action.view:hover {
+    background: rgba(66,165,245,0.2);
+    border-color: rgba(66,165,245,0.4);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 12px rgba(66,165,245,0.15);
+}
+

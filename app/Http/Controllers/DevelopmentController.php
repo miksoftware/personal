@@ -25,6 +25,33 @@ class DevelopmentController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(10);
 
+        // Apply FIFO logic to each client's developments in the current page
+        $clientIds = $developments->pluck('client_id')->unique();
+        foreach ($clientIds as $clientId) {
+            $clientDevs = Development::where('client_id', $clientId)->orderBy('created_at', 'asc')->get();
+            $clientPayments = \App\Models\Payment::where('client_id', $clientId)->get();
+            $globalPaid = (float) $clientPayments->whereNull('development_id')->sum('amount');
+
+            foreach ($clientDevs as $dev) {
+                $specificPaid = (float) $clientPayments->where('development_id', $dev->id)->sum('amount');
+                $devBalance = $dev->amount - $specificPaid;
+                
+                if ($devBalance > 0 && $globalPaid > 0) {
+                    $applied = min($devBalance, $globalPaid);
+                    $devBalance -= $applied;
+                    $globalPaid -= $applied;
+                }
+
+                if ($devBalance <= 0) {
+                    // Find this dev in the paginated collection and mark it
+                    $match = $developments->where('id', $dev->id)->first();
+                    if ($match) {
+                        $match->is_dynamically_paid = true;
+                    }
+                }
+            }
+        }
+
         $clients      = Client::orderBy('name')->get();
         $licenses     = License::with('client')->orderBy('url')->get();
         $allDevelopments = Development::where('type', '!=', 'soporte')

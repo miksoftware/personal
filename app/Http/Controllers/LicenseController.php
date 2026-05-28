@@ -45,6 +45,7 @@ class LicenseController extends Controller
             'status' => ['required', 'string', 'in:activa,suspendida,vencida'],
             'billing_cycle' => ['required', 'string', 'in:mensual,trimestral,semestral,anual'],
             'monthly_fee' => ['required', 'numeric', 'min:0'],
+            'setup_fee' => ['required', 'numeric', 'min:0'],
             'next_billing_date' => ['required', 'date'],
         ], [
             'client_id.required' => 'El cliente es obligatorio.',
@@ -57,6 +58,8 @@ class LicenseController extends Controller
             'billing_cycle.in' => 'El ciclo de facturación no es válido.',
             'monthly_fee.required' => 'La tarifa mensual es obligatoria.',
             'monthly_fee.numeric' => 'La tarifa mensual debe ser un valor numérico.',
+            'setup_fee.required' => 'El valor de instalación es obligatorio.',
+            'setup_fee.numeric' => 'El valor de instalación debe ser un valor numérico.',
             'next_billing_date.required' => 'La fecha de próxima facturación es obligatoria.',
         ]);
 
@@ -95,6 +98,7 @@ class LicenseController extends Controller
             'status' => ['required', 'string', 'in:activa,suspendida,vencida'],
             'billing_cycle' => ['required', 'string', 'in:mensual,trimestral,semestral,anual'],
             'monthly_fee' => ['required', 'numeric', 'min:0'],
+            'setup_fee' => ['required', 'numeric', 'min:0'],
             'next_billing_date' => ['required', 'date'],
         ], [
             'client_id.required' => 'El cliente es obligatorio.',
@@ -107,6 +111,8 @@ class LicenseController extends Controller
             'billing_cycle.in' => 'El ciclo de facturación no es válido.',
             'monthly_fee.required' => 'La tarifa mensual es obligatoria.',
             'monthly_fee.numeric' => 'La tarifa mensual debe ser un valor numérico.',
+            'setup_fee.required' => 'El valor de instalación es obligatorio.',
+            'setup_fee.numeric' => 'El valor de instalación debe ser un valor numérico.',
             'next_billing_date.required' => 'La fecha de próxima facturación es obligatoria.',
         ]);
 

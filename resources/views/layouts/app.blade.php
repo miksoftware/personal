@@ -103,6 +103,14 @@
                     </a>
                 </li>
 
+                <!-- Créditos -->
+                <li class="sidebar-menu-item">
+                    <a href="{{ route('credits.index') }}" class="sidebar-menu-link {{ Route::is('credits.*') ? 'active' : '' }}">
+                        <i class="bi bi-credit-card-2-front"></i>
+                        <span>Créditos</span>
+                    </a>
+                </li>
+
                 <!-- Reportes (Collapsible Dropdown) -->
                 @php
                     $reportesOpen = Route::is('reports.*');

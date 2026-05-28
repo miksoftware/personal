@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 
-#[Fillable(['client_id', 'url', 'block_token', 'status', 'billing_cycle', 'monthly_fee', 'next_billing_date', 'is_free'])]
+#[Fillable(['client_id', 'url', 'block_token', 'status', 'billing_cycle', 'monthly_fee', 'setup_fee', 'next_billing_date', 'is_free'])]
 class License extends Model
 {
     /**

@@ -7,6 +7,7 @@ use App\Http\Controllers\LicenseController;
 use App\Http\Controllers\DevelopmentController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\CreditController;
 use App\Http\Controllers\DatabaseImportController;
 use Illuminate\Support\Facades\Auth;
 
@@ -56,6 +57,11 @@ Route::middleware('auth')->group(function () {
     // Database Import
     Route::get('/db-import', [DatabaseImportController::class, 'index'])->name('db-import.index');
     Route::post('/db-import', [DatabaseImportController::class, 'import'])->name('db-import.import');
+
+    // Credits (Créditos a pagar)
+    Route::resource('credits', CreditController::class)->except(['create', 'edit']);
+    Route::post('/credits/{credit}/payments', [CreditController::class, 'storePayment'])->name('credits.payments.store');
+    Route::delete('/credits/{credit}/payments/{creditPayment}', [CreditController::class, 'destroyPayment'])->name('credits.payments.destroy');
 
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 });
