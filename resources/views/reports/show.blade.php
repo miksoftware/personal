@@ -244,17 +244,15 @@
             </tbody>
             <tfoot>
                 <tr style="border-top:2px solid rgba(255,255,255,0.1);">
-                    <td colspan="3" style="font-weight:700; color:rgba(255,255,255,0.7); font-size:12px; text-transform:uppercase; letter-spacing:.4px;">
-                        TOTALES
-                    </td>
+                    <td colspan="3" style="text-align:left; font-weight:800; color:var(--white); font-size:12px; text-transform:uppercase; letter-spacing:1px; padding:20px 15px;">TOTALES</td>
                     <td style="text-align:right; font-weight:800; color:var(--white); font-size:15px;">
-                        ${{ number_format($totalDebt, 2, '.', ',') }}
+                        ${{ number_format($devsTotalValue, 2, '.', ',') }}
                     </td>
                     <td style="text-align:right; font-weight:800; color:#48c78e; font-size:15px;">
-                        ${{ number_format($totalPaid, 2, '.', ',') }}
+                        ${{ number_format($devsTotalPaid, 2, '.', ',') }}
                     </td>
-                    <td style="text-align:right; font-weight:800; font-size:15px; color:{{ $balance <= 0 ? '#48c78e' : '#ffd54f' }};">
-                        ${{ number_format(max(0, $balance), 2, '.', ',') }}
+                    <td style="text-align:right; font-weight:800; font-size:15px; color:{{ $devsTotalPending <= 0 ? '#48c78e' : '#ffd54f' }};">
+                        ${{ number_format(max(0, $devsTotalPending), 2, '.', ',') }}
                     </td>
                 </tr>
             </tfoot>

@@ -46,22 +46,35 @@ class CreditController extends Controller
         $pendingLoans         = collect();
 
         if ($credit->client_id) {
+            // Get all used concepts in ANY credit of this client to avoid duplicates
+            $usedConcepts = \App\Models\CreditPayment::whereHas('credit', fn($q) => $q->where('client_id', $credit->client_id))
+                ->pluck('concept')
+                ->toArray();
+
             $recentClientPayments = \App\Models\Payment::where('client_id', $credit->client_id)
                 ->orderBy('payment_date', 'desc')
-                ->limit(5)
-                ->get();
+                ->limit(10)
+                ->get()
+                ->filter(function($p) use ($usedConcepts) {
+                    $concept = 'Pago mensualidad / ' . ($p->notes ?: 'Servicio');
+                    return !in_array($concept, $usedConcepts);
+                });
             
             $recentClientLicenses = \App\Models\License::where('client_id', $credit->client_id)
                 ->orderBy('created_at', 'desc')
-                ->limit(5)
-                ->get();
+                ->get(); // We filter individual components (setup/monthly) in the view or here? 
+                         // Better here to be consistent with the logic.
 
             // Loans I gave to the client (Yo presté) that are still pending
             $pendingLoans = \App\Models\Loan::where('client_id', $credit->client_id)
                 ->where('type', 'entregado')
                 ->where('status', 'pendiente')
                 ->orderBy('loan_date', 'desc')
-                ->get();
+                ->get()
+                ->filter(function($l) use ($usedConcepts) {
+                    $concept = 'Canje Préstamo: ' . $l->description;
+                    return !in_array($concept, $usedConcepts);
+                });
 
             // Find developments with pending balance using FIFO logic
             $allDevs = \App\Models\Development::where('client_id', $credit->client_id)
@@ -71,6 +84,10 @@ class CreditController extends Controller
             $globalPaid = (float) $allPayments->whereNull('development_id')->sum('amount');
 
             foreach ($allDevs as $dev) {
+                // Check if this development was already exchanged for a credit
+                $concept = 'Canje Desarrollo: ' . $dev->title;
+                if (in_array($concept, $usedConcepts)) continue;
+
                 $specificPaid = (float) $allPayments->where('development_id', $dev->id)->sum('amount');
                 $devBalance = $dev->amount - $specificPaid;
                 
@@ -87,7 +104,7 @@ class CreditController extends Controller
             }
         }
 
-        return view('credits.show', compact('credit', 'recentClientPayments', 'recentClientLicenses', 'pendingDevelopments', 'pendingLoans'));
+        return view('credits.show', compact('credit', 'recentClientPayments', 'recentClientLicenses', 'pendingDevelopments', 'pendingLoans', 'usedConcepts'));
     }
 
     /**

@@ -237,10 +237,11 @@
                 {{-- License Suggestions --}}
                 @foreach($recentClientLicenses as $rl)
                     {{-- Sugerencia de Instalación --}}
-                    @if($rl->setup_fee > 0)
+                    @php $setupConcept = 'Canje Instalación: ' . $rl->url; @endphp
+                    @if($rl->setup_fee > 0 && !in_array($setupConcept, $usedConcepts))
                         <div class="exchange-suggestion-item" 
                             style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px; cursor:pointer; transition:all .2s; margin-bottom:8px;"
-                            onclick="fillAbonoForm('{{ $rl->setup_fee }}', 'Canje Instalación: {{ addslashes($rl->url) }}', '{{ $rl->created_at->format('Y-m-d') }}')">
+                            onclick="fillAbonoForm('{{ $rl->setup_fee }}', '{{ $setupConcept }}', '{{ $rl->created_at->format('Y-m-d') }}')">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
                                 <span style="font-weight:600; color:#ff9800;">${{ number_format($rl->setup_fee, 2) }}</span>
                                 <span style="font-size:10px; color:rgba(255,255,255,0.25); text-transform:uppercase;">Instalación</span>
@@ -252,10 +253,11 @@
                     @endif
 
                     {{-- Sugerencia de Mensualidad --}}
-                    @if($rl->monthly_fee > 0)
+                    @php $monthlyConcept = 'Canje Mensualidad: ' . $rl->url; @endphp
+                    @if($rl->monthly_fee > 0 && !in_array($monthlyConcept, $usedConcepts))
                         <div class="exchange-suggestion-item" 
                             style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px; cursor:pointer; transition:all .2s;"
-                            onclick="fillAbonoForm('{{ $rl->monthly_fee }}', 'Canje Mensualidad: {{ addslashes($rl->url) }}', '{{ $rl->created_at->format('Y-m-d') }}')">
+                            onclick="fillAbonoForm('{{ $rl->monthly_fee }}', '{{ $monthlyConcept }}', '{{ $rl->created_at->format('Y-m-d') }}')">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
                                 <span style="font-weight:600; color:#42a5f5;">${{ number_format($rl->monthly_fee, 2) }}</span>
                                 <span style="font-size:10px; color:rgba(255,255,255,0.25); text-transform:uppercase;">Mensualidad</span>

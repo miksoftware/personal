@@ -95,6 +95,11 @@ class ReportController extends Controller
         $inProgressAmount= (float) $inProgressDevs->sum('amount');
         $inProgressCount = $inProgressDevs->count();
 
+        // Specific totals for the developments table (excluding loans)
+        $devsTotalValue   = (float) $developments->sum('amount');
+        $devsTotalPaid    = (float) $developments->sum('paid_toward');
+        $devsTotalPending = (float) $developments->sum('dev_balance');
+
         // Sort back for the view to match user's expected visual
         $developments = $developments->sortByDesc('created_at');
         $payments     = $payments->sortByDesc('payment_date');
@@ -105,7 +110,8 @@ class ReportController extends Controller
             'client', 'developments', 'payments', 'loans', 'credits',
             'totalDebt', 'totalPaid', 'balance', 'progressPct',
             'proyectosTotal', 'mejorasTotal', 'byMethod',
-            'completedAmount', 'completedCount', 'inProgressAmount', 'inProgressCount'
+            'completedAmount', 'completedCount', 'inProgressAmount', 'inProgressCount',
+            'devsTotalValue', 'devsTotalPaid', 'devsTotalPending'
         ));
     }
 }
