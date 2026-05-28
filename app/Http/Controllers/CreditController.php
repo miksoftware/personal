@@ -43,6 +43,7 @@ class CreditController extends Controller
         $recentClientPayments = collect();
         $recentClientLicenses = collect();
         $pendingDevelopments  = collect();
+        $pendingLoans         = collect();
 
         if ($credit->client_id) {
             $recentClientPayments = \App\Models\Payment::where('client_id', $credit->client_id)
@@ -53,6 +54,13 @@ class CreditController extends Controller
             $recentClientLicenses = \App\Models\License::where('client_id', $credit->client_id)
                 ->orderBy('created_at', 'desc')
                 ->limit(5)
+                ->get();
+
+            // Loans I gave to the client (Yo presté) that are still pending
+            $pendingLoans = \App\Models\Loan::where('client_id', $credit->client_id)
+                ->where('type', 'entregado')
+                ->where('status', 'pendiente')
+                ->orderBy('loan_date', 'desc')
                 ->get();
 
             // Find developments with pending balance using FIFO logic
@@ -79,7 +87,7 @@ class CreditController extends Controller
             }
         }
 
-        return view('credits.show', compact('credit', 'recentClientPayments', 'recentClientLicenses', 'pendingDevelopments'));
+        return view('credits.show', compact('credit', 'recentClientPayments', 'recentClientLicenses', 'pendingDevelopments', 'pendingLoans'));
     }
 
     /**

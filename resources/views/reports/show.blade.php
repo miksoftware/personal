@@ -49,8 +49,8 @@
             <div class="stmt-stat-label">Total Deuda Acumulada</div>
             <div class="stmt-stat-value">${{ number_format($totalDebt, 2, '.', ',') }}</div>
             <div class="stmt-stat-sub">
-                Proyectos (${{ number_format($proyectosTotal, 0, '.', ',') }})
-                + Mejoras (${{ number_format($mejorasTotal, 0, '.', ',') }})
+                Desarrollos (${{ number_format($developments->sum('amount'), 0, '.', ',') }})
+                + Préstamos (${{ number_format(\App\Models\Loan::where('client_id', $client->id)->where('type', 'entregado')->sum('amount'), 0, '.', ',') }})
             </div>
         </div>
     </div>
@@ -61,7 +61,8 @@
             <div class="stmt-stat-label">Total Abonos Realizados</div>
             <div class="stmt-stat-value">${{ number_format($totalPaid, 2, '.', ',') }}</div>
             <div class="stmt-stat-sub">
-                {{ $payments->count() }} pago{{ $payments->count() !== 1 ? 's' : '' }} registrado{{ $payments->count() !== 1 ? 's' : '' }}
+                Pagos (${{ number_format($payments->sum('amount'), 0, '.', ',') }})
+                + Préstamos recibidos (${{ number_format(\App\Models\Loan::where('client_id', $client->id)->where('type', 'recibido')->sum('amount'), 0, '.', ',') }})
             </div>
         </div>
     </div>

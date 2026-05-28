@@ -103,6 +103,14 @@
                     </a>
                 </li>
 
+                <!-- Préstamos -->
+                <li class="sidebar-menu-item">
+                    <a href="{{ route('loans.index') }}" class="sidebar-menu-link {{ Route::is('loans.*') ? 'active' : '' }}">
+                        <i class="bi bi-hand-thumbs-up-fill"></i>
+                        <span>Préstamos</span>
+                    </a>
+                </li>
+
                 <!-- Créditos -->
                 <li class="sidebar-menu-item">
                     <a href="{{ route('credits.index') }}" class="sidebar-menu-link {{ Route::is('credits.*') ? 'active' : '' }}">

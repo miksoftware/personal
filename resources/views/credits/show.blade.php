@@ -178,7 +178,7 @@
     </div>
 
     {{-- Right: Exchange Suggestions (Canje) --}}
-     @if($credit->client_id && ((isset($recentClientPayments) && $recentClientPayments->count() > 0) || (isset($recentClientLicenses) && $recentClientLicenses->count() > 0) || (isset($pendingDevelopments) && $pendingDevelopments->count() > 0)))
+     @if($credit->client_id && ((isset($recentClientPayments) && $recentClientPayments->count() > 0) || (isset($recentClientLicenses) && $recentClientLicenses->count() > 0) || (isset($pendingDevelopments) && $pendingDevelopments->count() > 0) || (isset($pendingLoans) && $pendingLoans->count() > 0)))
          <div class="client-table-card" style="margin:0; padding:20px;">
              <h3 style="margin:0 0 15px; font-size:15px; color:var(--white); display:flex; align-items:center; gap:8px;">
                  <i class="bi bi-lightning-charge" style="color:#ff9800;"></i>
@@ -189,6 +189,21 @@
              </p>
  
              <div style="display:flex; flex-direction:column; gap:10px;">
+                {{-- Loans Suggestions --}}
+                @foreach($pendingLoans as $pl)
+                    <div class="exchange-suggestion-item" 
+                        style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px; cursor:pointer; transition:all .2s;"
+                        onclick="fillAbonoForm('{{ $pl->amount }}', 'Canje Préstamo: {{ addslashes($pl->description) }}', '{{ $pl->loan_date }}')">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                            <span style="font-weight:600; color:#4fc3f7;">${{ number_format($pl->amount, 2) }}</span>
+                            <span style="font-size:10px; color:rgba(255,255,255,0.25); text-transform:uppercase;">Préstamo</span>
+                        </div>
+                        <div style="font-size:11px; color:var(--silver-light);">
+                            {{ $pl->description }} (Yo presté)
+                        </div>
+                    </div>
+                @endforeach
+
                 {{-- Pending Developments Suggestions --}}
                 @foreach($pendingDevelopments as $pd)
                     <div class="exchange-suggestion-item" 
