@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Client;
 use Illuminate\View\View;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\Response;
 
 class ReportController extends Controller
 {
@@ -43,6 +45,27 @@ class ReportController extends Controller
      */
     public function show(Client $client): View
     {
+        $data = $this->getReportData($client);
+        return view('reports.show', $data);
+    }
+
+    /**
+     * Download PDF version of the account statement.
+     */
+    public function downloadPDF(Client $client)
+    {
+        $data = $this->getReportData($client);
+        $pdf = Pdf::loadView('reports.pdf', $data);
+        
+        $filename = 'Estado_Cuenta_' . str_replace(' ', '_', $client->name) . '_' . date('Y-m-d') . '.pdf';
+        return $pdf->download($filename);
+    }
+
+    /**
+     * Shared logic to gather and calculate report data.
+     */
+    private function getReportData(Client $client): array
+    {
         $developments = $client->developments()->orderBy('created_at', 'asc')->get();
         $payments     = $client->payments()->with('development')->orderBy('payment_date', 'asc')->get();
         $loans        = \App\Models\Loan::where('client_id', $client->id)->orderBy('loan_date', 'asc')->get();
@@ -60,11 +83,9 @@ class ReportController extends Controller
         $paidByDev = $payments->whereNotNull('development_id')->groupBy('development_id');
         
         $developments->each(function ($dev) use ($paidByDev, &$remainingGlobalPaid) {
-            // Specific payments for this dev
             $specificPaid = (float) $paidByDev->get($dev->id, collect())->sum('amount');
             $dev->paid_toward = $specificPaid;
             
-            // Distribute global payments to cover remaining balance of this dev
             $stillPending = $dev->amount - $dev->paid_toward;
             if ($stillPending > 0 && $remainingGlobalPaid > 0) {
                 $applied = min($stillPending, $remainingGlobalPaid);
@@ -74,20 +95,17 @@ class ReportController extends Controller
             
             $dev->dev_balance = (float) $dev->amount - $dev->paid_toward;
             
-            // Update status dynamically for the view if it's fully paid
             if ($dev->dev_balance <= 0 && $dev->type === 'mejora') {
                 $dev->status = 'pagado';
             }
         });
 
-        // Subtotals by development type
+        // Subtotals
         $proyectosTotal = (float) $developments->where('type', 'proyecto')->sum('amount');
         $mejorasTotal   = (float) $developments->where('type', 'mejora')->sum('amount');
-
-        // Payments grouped by method
         $byMethod = $payments->groupBy('method')->map(fn($grp) => $grp->sum('amount'));
 
-        // Breakdown by status (using dynamic status from FIFO)
+        // Breakdown by status
         $completedDevs   = $developments->filter(fn($d) => in_array($d->status, ['completado', 'pagado']));
         $inProgressDevs  = $developments->filter(fn($d) => $d->status === 'pendiente' && $d->dev_balance > 0);
         $completedAmount = (float) $completedDevs->sum('amount');
@@ -95,23 +113,31 @@ class ReportController extends Controller
         $inProgressAmount= (float) $inProgressDevs->sum('amount');
         $inProgressCount = $inProgressDevs->count();
 
-        // Specific totals for the developments table (excluding loans)
+        // Specific totals for the developments table
         $devsTotalValue   = (float) $developments->sum('amount');
         $devsTotalPaid    = (float) $developments->sum('paid_toward');
         $devsTotalPending = (float) $developments->sum('dev_balance');
 
-        // Sort back for the view to match user's expected visual
-        $developments = $developments->sortByDesc('created_at');
-        $payments     = $payments->sortByDesc('payment_date');
-        $loans        = $loans->sortByDesc('loan_date');
-        $credits      = $credits->sortByDesc('credit_date');
-
-        return view('reports.show', compact(
-            'client', 'developments', 'payments', 'loans', 'credits',
-            'totalDebt', 'totalPaid', 'balance', 'progressPct',
-            'proyectosTotal', 'mejorasTotal', 'byMethod',
-            'completedAmount', 'completedCount', 'inProgressAmount', 'inProgressCount',
-            'devsTotalValue', 'devsTotalPaid', 'devsTotalPending'
-        ));
+        return [
+            'client' => $client,
+            'developments' => $developments->sortByDesc('created_at'),
+            'payments' => $payments->sortByDesc('payment_date'),
+            'loans' => $loans->sortByDesc('loan_date'),
+            'credits' => $credits->sortByDesc('credit_date'),
+            'totalDebt' => $totalDebt,
+            'totalPaid' => $totalPaid,
+            'balance' => $balance,
+            'progressPct' => $progressPct,
+            'proyectosTotal' => $proyectosTotal,
+            'mejorasTotal' => $mejorasTotal,
+            'byMethod' => $byMethod,
+            'completedAmount' => $completedAmount,
+            'completedCount' => $completedCount,
+            'inProgressAmount' => $inProgressAmount,
+            'inProgressCount' => $inProgressCount,
+            'devsTotalValue' => $devsTotalValue,
+            'devsTotalPaid' => $devsTotalPaid,
+            'devsTotalPending' => $devsTotalPending
+        ];
     }
 }

@@ -34,9 +34,9 @@
         <a href="{{ route('reports.index') }}" class="btn-secondary">
             <i class="bi bi-arrow-left"></i> Volver
         </a>
-        <button onclick="window.print()" class="btn-primary-action no-print">
-            <i class="bi bi-printer"></i> Imprimir / PDF
-        </button>
+        <a href="{{ route('reports.pdf', $client->id) }}" class="btn-primary-action" style="text-decoration:none; background: #ff9800; border-color: #f57c00;">
+            <i class="bi bi-file-earmark-pdf-fill"></i> Descargar PDF
+        </a>
     </div>
 </div>
 

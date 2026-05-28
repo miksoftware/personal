@@ -51,9 +51,10 @@ Route::middleware('auth')->group(function () {
     // Payments CRUD
     Route::resource('payments', PaymentController::class)->only(['index', 'store', 'destroy']);
 
-    // Reports
+    // Reports (Estados de Cuenta)
     Route::get('/reports/estado-cuenta', [ReportController::class, 'index'])->name('reports.index');
     Route::get('/reports/estado-cuenta/{client}', [ReportController::class, 'show'])->name('reports.show');
+    Route::get('/reports/estado-cuenta/{client}/pdf', [ReportController::class, 'downloadPDF'])->name('reports.pdf');
 
     // Database Import
     Route::get('/db-import', [DatabaseImportController::class, 'index'])->name('db-import.index');
