@@ -43,8 +43,16 @@
                 <!-- Dashboard -->
                 <li class="sidebar-menu-item">
                     <a href="{{ route('dashboard') }}" class="sidebar-menu-link {{ Route::is('dashboard') ? 'active' : '' }}">
-                        <i class="bi bi-grid-fill"></i>
+                        <i class="bi bi-speedometer2"></i>
                         <span>Dashboard</span>
+                    </a>
+                </li>
+
+                <!-- Cuentas Bancarias -->
+                <li class="sidebar-menu-item">
+                    <a href="{{ route('bank-accounts.index') }}" class="sidebar-menu-link {{ Route::is('bank-accounts.*') ? 'active' : '' }}">
+                        <i class="bi bi-bank"></i>
+                        <span>Cuentas Bancarias</span>
                     </a>
                 </li>
 

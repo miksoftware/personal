@@ -9,6 +9,7 @@ use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\CreditController;
 use App\Http\Controllers\LoanController;
+use App\Http\Controllers\BankAccountController;
 use App\Http\Controllers\DatabaseImportController;
 use Illuminate\Support\Facades\Auth;
 
@@ -59,6 +60,9 @@ Route::middleware('auth')->group(function () {
     // Database Import
     Route::get('/db-import', [DatabaseImportController::class, 'index'])->name('db-import.index');
     Route::post('/db-import', [DatabaseImportController::class, 'import'])->name('db-import.import');
+
+    // Bank Accounts
+    Route::resource('bank-accounts', BankAccountController::class)->except(['create', 'edit', 'show']);
 
     // Loans (Préstamos)
     Route::resource('loans', LoanController::class)->except(['create', 'edit', 'show']);

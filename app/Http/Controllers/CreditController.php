@@ -62,8 +62,34 @@ class CreditController extends Controller
             
             $recentClientLicenses = \App\Models\License::where('client_id', $credit->client_id)
                 ->orderBy('created_at', 'desc')
-                ->get(); // We filter individual components (setup/monthly) in the view or here? 
-                         // Better here to be consistent with the logic.
+                ->get()
+                ->filter(function($l) use ($usedConcepts, $credit) {
+                    // Verificamos si ya existe un PAGO FÍSICO registrado para este ciclo/licencia
+                    // que NO sea un canje (es decir, que no esté en usedConcepts ya como abono de crédito)
+                    
+                    $monthlyConcept = 'Canje Mensualidad: ' . $l->url;
+                    $setupConcept   = 'Canje Instalación: ' . $l->url;
+
+                    // Si ya se registró un pago físico de mensualidad para esta licencia en el mes actual, lo quitamos de sugerencias
+                    $hasMonthlyPayment = \App\Models\Payment::where('license_id', $l->id)
+                        ->where('license_payment_type', 'mensualidad')
+                        ->whereMonth('payment_date', now()->month)
+                        ->whereYear('payment_date', now()->year)
+                        ->exists();
+
+                    // Si ya se registró un pago físico de instalación, lo quitamos
+                    $hasSetupPayment = \App\Models\Payment::where('license_id', $l->id)
+                        ->where('license_payment_type', 'instalacion')
+                        ->exists();
+
+                    // Guardamos estos estados en el objeto para usarlos en la vista
+                    $l->already_paid_monthly = $hasMonthlyPayment;
+                    $l->already_paid_setup = $hasSetupPayment;
+
+                    // Solo sugerimos si NO se ha pagado físicamente Y NO se ha canjeado antes
+                    return (!$hasMonthlyPayment && !in_array($monthlyConcept, $usedConcepts)) || 
+                           (!$hasSetupPayment && !in_array($setupConcept, $usedConcepts));
+                });
 
             // Loans I gave to the client (Yo presté) that are still pending
             $pendingLoans = \App\Models\Loan::where('client_id', $credit->client_id)
@@ -113,12 +139,15 @@ class CreditController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'client_id'     => ['nullable', 'exists:clients,id'],
-            'creditor_name' => ['required', 'string', 'max:255'],
-            'description'   => ['required', 'string', 'max:255'],
-            'total_amount'  => ['required', 'numeric', 'min:0.01'],
-            'credit_date'   => ['required', 'date'],
-            'notes'         => ['nullable', 'string'],
+            'client_id'          => ['nullable', 'exists:clients,id'],
+            'type'               => ['required', 'in:proveedor,personal'],
+            'creditor_name'      => ['required', 'string', 'max:255'],
+            'description'        => ['required', 'string', 'max:255'],
+            'total_amount'       => ['required', 'numeric', 'min:0.01'],
+            'installment_value'  => ['nullable', 'numeric', 'min:0'],
+            'total_installments' => ['nullable', 'integer', 'min:1'],
+            'credit_date'        => ['required', 'date'],
+            'notes'              => ['nullable', 'string'],
         ], [
             'creditor_name.required' => 'El nombre del acreedor es obligatorio.',
             'description.required'   => 'La descripción es obligatoria.',
@@ -140,13 +169,16 @@ class CreditController extends Controller
     public function update(Request $request, Credit $credit): RedirectResponse
     {
         $validated = $request->validate([
-            'client_id'     => ['nullable', 'exists:clients,id'],
-            'creditor_name' => ['required', 'string', 'max:255'],
-            'description'   => ['required', 'string', 'max:255'],
-            'total_amount'  => ['required', 'numeric', 'min:0.01'],
-            'credit_date'   => ['required', 'date'],
-            'status'        => ['required', 'in:activo,pagado,cancelado'],
-            'notes'         => ['nullable', 'string'],
+            'client_id'          => ['nullable', 'exists:clients,id'],
+            'type'               => ['required', 'in:proveedor,personal'],
+            'creditor_name'      => ['required', 'string', 'max:255'],
+            'description'        => ['required', 'string', 'max:255'],
+            'total_amount'       => ['required', 'numeric', 'min:0.01'],
+            'installment_value'  => ['nullable', 'numeric', 'min:0'],
+            'total_installments' => ['nullable', 'integer', 'min:1'],
+            'credit_date'        => ['required', 'date'],
+            'status'             => ['required', 'in:activo,pagado,cancelado'],
+            'notes'              => ['nullable', 'string'],
         ], [
             'creditor_name.required' => 'El nombre del acreedor es obligatorio.',
             'description.required'   => 'La descripción es obligatoria.',

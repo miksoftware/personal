@@ -78,7 +78,7 @@
                         <th>Cliente</th>
                         <th>Destino / Concepto</th>
                         <th>Referencia</th>
-                        <th>Método</th>
+                        <th>Cuenta Destino</th>
                         <th>Monto</th>
                         <th style="width:60px; text-align:center;">Acciones</th>
                     </tr>
@@ -111,9 +111,13 @@
                             </td>
 
                             <td>
-                                <span class="badge-method {{ $payment->method }}">
-                                    {{ $payment->method_label }}
-                                </span>
+                                @if($payment->bankAccount)
+                                    <span style="color:var(--white); font-weight:500;">{{ $payment->bankAccount->name }}</span>
+                                @else
+                                    <span class="badge-method {{ $payment->method }}">
+                                        {{ $payment->method_label }}
+                                    </span>
+                                @endif
                             </td>
 
                             <td>
@@ -189,7 +193,7 @@
                 </select>
             </div>
 
-            {{-- Monto + Método --}}
+            {{-- Monto + Cuenta de Destino --}}
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
                 <div class="form-group">
                     <label for="pay_amount" class="form-label">Monto del Abono ($) *</label>
@@ -198,14 +202,19 @@
                         value="{{ old('amount') }}" required>
                 </div>
                 <div class="form-group">
-                    <label for="pay_method" class="form-label">Método de Pago *</label>
-                    <select name="method" id="pay_method" required>
-                        <option value="efectivo"    {{ old('method', 'efectivo') === 'efectivo'    ? 'selected' : '' }}>Efectivo</option>
-                        <option value="nequi"       {{ old('method') === 'nequi'       ? 'selected' : '' }}>Nequi</option>
-                        <option value="bancolombia" {{ old('method') === 'bancolombia' ? 'selected' : '' }}>Bancolombia</option>
+                    <label for="pay_bank_account_id" class="form-label">Cuenta de Destino *</label>
+                    <select name="bank_account_id" id="pay_bank_account_id" required>
+                        <option value="">Selecciona cuenta</option>
+                        @foreach($bankAccounts as $acc)
+                            <option value="{{ $acc->id }}" {{ old('bank_account_id') == $acc->id ? 'selected' : '' }}>
+                                {{ $acc->name }} (${{ number_format($acc->current_balance, 0) }})
+                            </option>
+                        @endforeach
                     </select>
                 </div>
             </div>
+
+            <input type="hidden" name="method" id="pay_method" value="transferencia">
 
             {{-- Fecha --}}
             <div class="form-group">

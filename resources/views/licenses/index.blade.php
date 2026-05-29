@@ -126,11 +126,18 @@
 
                             {{-- Actions --}}
                             <td style="text-align:center;">
-                                <div class="actions-cell" style="justify-content:center;">
+                                <div class="actions-cell" style="justify-content:center; gap:8px;">
+                                    {{-- Registrar Pago (Icono Billetes) --}}
+                                    <button type="button" class="btn-action edit" title="Registrar pago"
+                                        style="background:rgba(72,199,142,0.1); color:#48c78e; border:1px solid rgba(72,199,142,0.2);"
+                                        onclick="openLicensePaymentSelectorModal({{ json_encode($license) }})">
+                                        <i class="bi bi-cash-stack"></i>
+                                    </button>
+
                                     <button
                                         type="button"
                                         class="btn-action edit"
-                                        title="Editar Licencia"
+                                        title="Editar licencia"
                                         onclick="openEditLicenseModal(
                                             '{{ $license->id }}',
                                             '{{ $license->client_id }}',
@@ -780,3 +787,147 @@ async function doSystemToggle(action) {
 </script>
 
 @endsection
+
+{{-- ==============================================================
+     MODAL — SELECCIONAR TIPO DE PAGO
+     ============================================================== --}}
+<div class="modal" id="licensePaymentSelectorModal">
+    <div class="modal-backdrop" id="paymentSelectorBackdrop"></div>
+    <div class="modal-content" style="max-width:400px; text-align:center;">
+        <div class="modal-header">
+            <h3 class="modal-title">
+                <i class="bi bi-cash-stack" style="color:#48c78e; margin-right:8px;"></i>¿Qué pago registrará?
+            </h3>
+            <button class="modal-close" id="btnClosePaymentSelector">&times;</button>
+        </div>
+        <p id="paymentSelectorUrl" style="color:var(--silver); font-size:14px; margin-bottom:20px;"></p>
+        
+        <div style="display:flex; flex-direction:column; gap:12px; padding:0 20px 20px;">
+            <button type="button" id="btnPayMonthly" class="btn-primary-action" style="background:#42a5f5; border-color:#1e88e5; justify-content:center;">
+                <i class="bi bi-calendar-check"></i> Pago de Mensualidad
+            </button>
+            
+            <button type="button" id="btnPaySetup" class="btn-primary-action" style="background:#ff9800; border-color:#f57c00; justify-content:center;">
+                <i class="bi bi-tools"></i> Pago de Instalación
+            </button>
+        </div>
+    </div>
+</div>
+
+{{-- ==============================================================
+     MODAL — REGISTRAR PAGO DE LICENCIA (Formulario)
+     ============================================================== --}}
+<div class="modal" id="registerLicensePaymentModal">
+    <div class="modal-backdrop" id="licensePaymentBackdrop"></div>
+    <div class="modal-content" style="max-width:480px;">
+        <div class="modal-header">
+            <h3 class="modal-title">
+                <i class="bi bi-receipt" style="color:var(--salmon); margin-right:8px;"></i>Registrar Pago Físico
+            </h3>
+            <button class="modal-close" id="btnCloseLicensePayment">&times;</button>
+        </div>
+        <p id="licensePaymentDesc" style="color:var(--silver); font-size:13px; margin: -8px 0 16px; padding: 0 28px;">
+            Registrar ingreso de dinero por licencia.
+        </p>
+        <form action="{{ route('payments.store') }}" method="POST" autocomplete="off">
+            @csrf
+            <input type="hidden" name="client_id" id="lp_client_id">
+            <input type="hidden" name="license_id" id="lp_license_id">
+            <input type="hidden" name="license_payment_type" id="lp_type">
+            <input type="hidden" name="method" value="transferencia">
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                <div class="form-group">
+                    <label class="form-label">Monto a Recibir ($)*</label>
+                    <input type="number" name="amount" id="lp_amount" class="form-input" step="0.01" required>
+                </div>
+                @php $bankAccounts = \App\Models\BankAccount::where('is_active', true)->get(); @endphp
+                <div class="form-group">
+                    <label class="form-label">Cuenta de Destino*</label>
+                    <select name="bank_account_id" id="lp_bank_account_id" class="form-input" required>
+                        <option value="">Seleccionar cuenta</option>
+                        @foreach($bankAccounts as $acc)
+                            <option value="{{ $acc->id }}">{{ $acc->name }} (${{ number_format($acc->current_balance, 0) }})</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Fecha del Pago*</label>
+                <input type="date" name="payment_date" class="form-input" value="{{ date('Y-m-d') }}" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Referencia / Notas</label>
+                <input type="text" name="notes" id="lp_notes" class="form-input" placeholder="Ej. Pago mes de mayo">
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" id="btnCancelLicensePayment">Cancelar</button>
+                <button type="submit" class="btn-primary-action">Confirmar Ingreso</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // ... (scripts existentes)
+
+    // ── Register License Payment ────────────────────────────────
+    const modalLP = document.getElementById('registerLicensePaymentModal');
+    const modalSelector = document.getElementById('licensePaymentSelectorModal');
+    
+    const closeLP = () => modalLP.classList.remove('open');
+    const closeSelector = () => modalSelector.classList.remove('open');
+
+    document.getElementById('btnCloseLicensePayment').addEventListener('click', closeLP);
+    document.getElementById('btnCancelLicensePayment').addEventListener('click', closeLP);
+    document.getElementById('licensePaymentBackdrop').addEventListener('click', closeLP);
+
+    document.getElementById('btnClosePaymentSelector').addEventListener('click', closeSelector);
+    document.getElementById('paymentSelectorBackdrop').addEventListener('click', closeSelector);
+
+    let currentLicenseForPayment = null;
+
+    window.openLicensePaymentSelectorModal = function(license) {
+        currentLicenseForPayment = license;
+        document.getElementById('paymentSelectorUrl').textContent = license.url;
+        
+        // Mostrar/Ocultar botón de instalación según si tiene valor
+        const btnSetup = document.getElementById('btnPaySetup');
+        if (parseFloat(license.setup_fee) > 0) {
+            btnSetup.style.display = 'flex';
+        } else {
+            btnSetup.style.display = 'none';
+        }
+        
+        modalSelector.classList.add('open');
+    };
+
+    document.getElementById('btnPayMonthly').addEventListener('click', function() {
+        closeSelector();
+        openRegisterLicensePaymentForm(currentLicenseForPayment, 'mensualidad');
+    });
+
+    document.getElementById('btnPaySetup').addEventListener('click', function() {
+        closeSelector();
+        openRegisterLicensePaymentForm(currentLicenseForPayment, 'instalacion');
+    });
+
+    function openRegisterLicensePaymentForm(license, type) {
+        const amount = type === 'instalacion' ? license.setup_fee : license.monthly_fee;
+        const typeLabel = type === 'instalacion' ? 'Instalación' : 'Mensualidad';
+        
+        document.getElementById('lp_client_id').value = license.client_id;
+        document.getElementById('lp_license_id').value = license.id;
+        document.getElementById('lp_type').value = type;
+        document.getElementById('lp_amount').value = amount;
+        document.getElementById('lp_notes').value = `Pago ${typeLabel} - ${license.url}`;
+        document.getElementById('licensePaymentDesc').textContent = `Registrar pago de ${typeLabel} para ${license.url}`;
+        
+        modalLP.classList.add('open');
+    }
+});
+</script>

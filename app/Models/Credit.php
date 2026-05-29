@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 
-#[Fillable(['client_id', 'creditor_name', 'description', 'total_amount', 'status', 'credit_date', 'notes'])]
+#[Fillable(['client_id', 'type', 'creditor_name', 'description', 'total_amount', 'installment_value', 'total_installments', 'status', 'credit_date', 'notes'])]
 class Credit extends Model
 {
     public function client(): BelongsTo
@@ -20,17 +20,24 @@ class Credit extends Model
         return $this->hasMany(CreditPayment::class);
     }
 
-    // ── Computed Accessors ──────────────────────────────────
+    public function getTypeLabelAttribute(): string
+    {
+        return $this->type === 'proveedor' ? 'Proveedor (Canje)' : 'Personal (Cuotas)';
+    }
+
+    public function getStatusLabelAttribute(): string
+    {
+        return match ($this->status) {
+            'activo'    => 'Activo',
+            'pagado'    => 'Pagado',
+            'cancelado' => 'Cancelado',
+            default     => ucfirst($this->status),
+        };
+    }
 
     public function getTotalPaidAttribute(): float
     {
-        if (array_key_exists('payments_sum_amount', $this->attributes)) {
-            return (float) $this->attributes['payments_sum_amount'];
-        }
-        if ($this->relationLoaded('payments')) {
-            return (float) $this->payments->sum('amount');
-        }
-        return (float) $this->payments()->sum('amount');
+        return (float) $this->payments_sum_amount;
     }
 
     public function getBalanceAttribute(): float
@@ -44,13 +51,20 @@ class Credit extends Model
         return min(100, round(($this->total_paid / $this->total_amount) * 100, 1));
     }
 
-    public function getStatusLabelAttribute(): string
+    /**
+     * Get the number of installments paid based on total paid and installment value.
+     */
+    public function getInstallmentsPaidAttribute(): int
     {
-        return match ($this->status) {
-            'activo'    => 'Activo',
-            'pagado'    => 'Pagado',
-            'cancelado' => 'Cancelado',
-            default     => ucfirst($this->status),
-        };
+        if ($this->installment_value <= 0) return 0;
+        return (int) floor($this->total_paid / $this->installment_value);
+    }
+
+    /**
+     * Get the next installment number.
+     */
+    public function getNextInstallmentNumberAttribute(): int
+    {
+        return $this->installments_paid + 1;
     }
 }

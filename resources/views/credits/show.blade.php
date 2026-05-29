@@ -46,6 +46,10 @@
             <div>
                 <h2 style="margin:0 0 4px; font-size:20px; font-weight:700; color:var(--white);">{{ $credit->description }}</h2>
                 <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <span style="color:{{ $credit->type === 'personal' ? '#42a5f5' : '#ff9800' }}; font-weight:600;">
+                        <i class="bi bi-tag-fill" style="margin-right:2px;"></i>{{ $credit->type_label }}
+                    </span>
+                    <span style="color:rgba(255,255,255,0.3);">•</span>
                     <span style="color:#ff9800; font-weight:600;">
                         <i class="bi bi-person-fill" style="margin-right:2px;"></i>{{ $credit->creditor_name }}
                     </span>
@@ -61,6 +65,23 @@
                     </span>
                     <span class="badge-credit-status {{ $credit->status }}">{{ $credit->status_label }}</span>
                 </div>
+
+                @if($credit->type === 'personal' && $credit->installment_value > 0)
+                    <div style="margin-top:10px; display:flex; align-items:center; gap:15px; flex-wrap:wrap;">
+                        <div style="color:#42a5f5; font-size:13px; font-weight:500;">
+                            <i class="bi bi-cash-stack" style="margin-right:2px;"></i>Cuota: ${{ number_format($credit->installment_value, 2) }} 
+                            @if($credit->total_installments)
+                                <span style="color:rgba(255,255,255,0.4); margin-left:4px;">({{ $credit->total_installments }} cuotas en total)</span>
+                            @endif
+                        </div>
+                        <div style="color:#48c78e; font-size:13px; font-weight:500;">
+                            <i class="bi bi-check2-square" style="margin-right:2px;"></i>Cuotas pagadas: {{ $credit->installments_paid }} 
+                            @if($credit->total_installments)
+                                / {{ $credit->total_installments }}
+                            @endif
+                        </div>
+                    </div>
+                @endif
             </div>
         </div>
 
@@ -119,10 +140,19 @@
                 <i class="bi bi-clock-history" style="margin-right:6px; color:var(--salmon);"></i>Historial de Abonos
             </h3>
             @if($credit->status === 'activo')
-                <button class="btn-primary-action" id="btnOpenCreateAbono">
-                    <i class="bi bi-plus-lg"></i>
-                    <span>Registrar Abono</span>
-                </button>
+                <div style="display:flex; gap:10px;">
+                    @if($credit->type === 'personal' && $credit->installment_value > 0)
+                        <button class="btn-secondary" style="background:rgba(66,165,245,0.1); border-color:rgba(66,165,245,0.3); color:#42a5f5; font-size:12px; padding:6px 12px;"
+                            onclick="fillAbonoForm('{{ $credit->installment_value }}', 'Cuota #{{ $credit->next_installment_number }} - {{ addslashes($credit->description) }}', '{{ date('Y-m-d') }}', 'efectivo')">
+                            <i class="bi bi-calendar-check"></i>
+                            Pagar Cuota #{{ $credit->next_installment_number }}
+                        </button>
+                    @endif
+                    <button class="btn-primary-action" id="btnOpenCreateAbono">
+                        <i class="bi bi-plus-lg"></i>
+                        <span>Registrar Abono</span>
+                    </button>
+                </div>
             @endif
         </div>
 
@@ -238,7 +268,7 @@
                 @foreach($recentClientLicenses as $rl)
                     {{-- Sugerencia de Instalación --}}
                     @php $setupConcept = 'Canje Instalación: ' . $rl->url; @endphp
-                    @if($rl->setup_fee > 0 && !in_array($setupConcept, $usedConcepts))
+                    @if($rl->setup_fee > 0 && !in_array($setupConcept, $usedConcepts) && !($rl->already_paid_setup ?? false))
                         <div class="exchange-suggestion-item" 
                             style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px; cursor:pointer; transition:all .2s; margin-bottom:8px;"
                             onclick="fillAbonoForm('{{ $rl->setup_fee }}', '{{ $setupConcept }}', '{{ $rl->created_at->format('Y-m-d') }}')">
@@ -254,7 +284,7 @@
 
                     {{-- Sugerencia de Mensualidad --}}
                     @php $monthlyConcept = 'Canje Mensualidad: ' . $rl->url; @endphp
-                    @if($rl->monthly_fee > 0 && !in_array($monthlyConcept, $usedConcepts))
+                    @if($rl->monthly_fee > 0 && !in_array($monthlyConcept, $usedConcepts) && !($rl->already_paid_monthly ?? false))
                         <div class="exchange-suggestion-item" 
                             style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px; cursor:pointer; transition:all .2s;"
                             onclick="fillAbonoForm('{{ $rl->monthly_fee }}', '{{ $monthlyConcept }}', '{{ $rl->created_at->format('Y-m-d') }}')">
@@ -425,11 +455,11 @@ function openDeleteAbonoModal(id, amount, concept) {
     document.getElementById('deleteAbonoModal').classList.add('open');
 }
 
-function fillAbonoForm(amount, concept, date) {
+function fillAbonoForm(amount, concept, date, method = 'canje') {
     document.getElementById('ab_amount').value = amount;
     document.getElementById('ab_concept').value = concept;
     document.getElementById('ab_payment_date').value = date;
-    document.getElementById('ab_method').value = 'canje';
+    document.getElementById('ab_method').value = method;
     document.getElementById('createAbonoModal').classList.add('open');
 }
 </script>

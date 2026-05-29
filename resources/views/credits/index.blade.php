@@ -93,7 +93,7 @@
                 <thead>
                     <tr>
                         <th>Fecha</th>
-                        <th>Acreedor / Cliente</th>
+                        <th>Tipo / Acreedor</th>
                         <th>Descripción</th>
                         <th>Total</th>
                         <th>Abonado</th>
@@ -116,11 +116,19 @@
                             </td>
 
                             <td>
+                                <div style="font-size:10px; text-transform:uppercase; color:{{ $credit->type === 'personal' ? '#42a5f5' : '#ff9800' }}; font-weight:700; margin-bottom:2px;">
+                                    {{ $credit->type_label }}
+                                </div>
                                 <div style="font-weight:600;">{{ $credit->creditor_name }}</div>
                                 @if($credit->client)
                                     <div style="font-size:11px; color:var(--salmon); display:flex; align-items:center; gap:4px; margin-top:2px;">
                                         <i class="bi bi-person-circle"></i>
                                         {{ $credit->client->name }}
+                                    </div>
+                                @elseif($credit->type === 'personal' && $credit->installment_value > 0)
+                                    <div style="font-size:11px; color:#42a5f5; display:flex; align-items:center; gap:4px; margin-top:2px;">
+                                        <i class="bi bi-calendar-check"></i>
+                                        Cuota: ${{ number_format($credit->installment_value, 2) }}
                                     </div>
                                 @endif
                             </td>
@@ -209,8 +217,17 @@
         <form action="{{ route('credits.store') }}" method="POST" autocomplete="off">
             @csrf
 
-            {{-- Cliente (Opcional) --}}
+            {{-- Tipo de Crédito --}}
             <div class="form-group">
+                <label for="cr_type" class="form-label">Tipo de Crédito *</label>
+                <select name="type" id="cr_type" class="form-input" required onchange="toggleInstallmentFields('create')">
+                    <option value="proveedor">Proveedor (Canje de servicios)</option>
+                    <option value="personal">Personal (Pago por cuotas/efectivo)</option>
+                </select>
+            </div>
+
+            {{-- Cliente (Opcional) --}}
+            <div class="form-group" id="create_client_container">
                 <label for="cr_client_id" class="form-label">Vincular a Cliente <span style="color:rgba(255,255,255,0.3); font-size:11px;">(opcional)</span></label>
                 <select name="client_id" id="cr_client_id" class="form-input">
                     <option value="">-- No vincular --</option>
@@ -224,31 +241,42 @@
 
             {{-- Acreedor --}}
             <div class="form-group">
-                <label for="cr_creditor_name" class="form-label">Acreedor / Proveedor *</label>
+                <label for="cr_creditor_name" class="form-label">Acreedor / Entidad *</label>
                 <input type="text" name="creditor_name" id="cr_creditor_name" class="form-input"
-                    placeholder="Ej. Juan Pérez, TecnoStore..." value="{{ old('creditor_name') }}" required>
+                    placeholder="Ej. Juan Pérez, CrediOrbe, Bancolombia..." value="{{ old('creditor_name') }}" required>
             </div>
 
-            {{-- Descripción --}}
-            <div class="form-group">
-                <label for="cr_description" class="form-label">Descripción del artículo *</label>
-                <input type="text" name="description" id="cr_description" class="form-input"
-                    placeholder="Ej. Portátil ASUS VivoBook 15" value="{{ old('description') }}" required>
-            </div>
-
-            {{-- Monto + Fecha --}}
+            {{-- Monto Total + Fecha --}}
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
                 <div class="form-group">
-                    <label for="cr_total_amount" class="form-label">Monto Total ($) *</label>
+                    <label for="cr_total_amount" class="form-label">Monto Total *</label>
                     <input type="number" name="total_amount" id="cr_total_amount" class="form-input"
-                        placeholder="0.00" step="0.01" min="0.01"
-                        value="{{ old('total_amount') }}" required>
+                        placeholder="0.00" step="0.01" min="0.01" value="{{ old('total_amount') }}" required>
                 </div>
                 <div class="form-group">
                     <label for="cr_credit_date" class="form-label">Fecha del Crédito *</label>
                     <input type="date" name="credit_date" id="cr_credit_date" class="form-input"
                         value="{{ old('credit_date', date('Y-m-d')) }}" required>
                 </div>
+            </div>
+
+            {{-- Campos de Cuotas (Solo si es Personal) --}}
+            <div id="create_installment_fields" style="display:none; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:15px; background:rgba(255,255,255,0.03); padding:15px; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label for="cr_installment_value" class="form-label">Valor Cuota ($)</label>
+                    <input type="number" name="installment_value" id="cr_installment_value" class="form-input" placeholder="0.00" step="0.01">
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label for="cr_total_installments" class="form-label">Total Cuotas</label>
+                    <input type="number" name="total_installments" id="cr_total_installments" class="form-input" placeholder="Ej. 12">
+                </div>
+            </div>
+
+            {{-- Descripción --}}
+            <div class="form-group">
+                <label for="cr_description" class="form-label">Descripción / Artículo *</label>
+                <input type="text" name="description" id="cr_description" class="form-input"
+                    placeholder="Ej. Moto Yamaha R3, Préstamo personal..." value="{{ old('description') }}" required>
             </div>
 
             {{-- Notas --}}
@@ -286,8 +314,17 @@
             @csrf
             @method('PUT')
 
-            {{-- Cliente (Opcional) --}}
+            {{-- Tipo de Crédito --}}
             <div class="form-group">
+                <label for="ed_type" class="form-label">Tipo de Crédito *</label>
+                <select name="type" id="ed_type" class="form-input" required onchange="toggleInstallmentFields('edit')">
+                    <option value="proveedor">Proveedor (Canje de servicios)</option>
+                    <option value="personal">Personal (Pago por cuotas/efectivo)</option>
+                </select>
+            </div>
+
+            {{-- Cliente (Opcional) --}}
+            <div class="form-group" id="edit_client_container">
                 <label for="ed_client_id" class="form-label">Vincular a Cliente</label>
                 <select name="client_id" id="ed_client_id" class="form-input">
                     <option value="">-- No vincular --</option>
@@ -299,33 +336,43 @@
 
             {{-- Acreedor --}}
             <div class="form-group">
-                <label for="ed_creditor_name" class="form-label">Acreedor / Proveedor *</label>
+                <label for="ed_creditor_name" class="form-label">Acreedor / Entidad *</label>
                 <input type="text" name="creditor_name" id="ed_creditor_name" class="form-input" required>
             </div>
 
-            {{-- Descripción --}}
-            <div class="form-group">
-                <label for="ed_description" class="form-label">Descripción *</label>
-                <input type="text" name="description" id="ed_description" class="form-input" required>
-            </div>
-
-            {{-- Monto + Fecha --}}
+            {{-- Monto Total + Fecha --}}
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
                 <div class="form-group">
-                    <label for="ed_total_amount" class="form-label">Monto Total ($) *</label>
-                    <input type="number" name="total_amount" id="ed_total_amount" class="form-input"
-                        step="0.01" min="0.01" required>
+                    <label for="ed_total_amount" class="form-label">Monto Total *</label>
+                    <input type="number" name="total_amount" id="ed_total_amount" class="form-input" step="0.01" min="0.01" required>
                 </div>
                 <div class="form-group">
-                    <label for="ed_credit_date" class="form-label">Fecha *</label>
+                    <label for="ed_credit_date" class="form-label">Fecha del Crédito *</label>
                     <input type="date" name="credit_date" id="ed_credit_date" class="form-input" required>
                 </div>
             </div>
 
-            {{-- Estado --}}
+            {{-- Campos de Cuotas (Solo si es Personal) --}}
+            <div id="edit_installment_fields" style="display:none; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:15px; background:rgba(255,255,255,0.03); padding:15px; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label for="ed_installment_value" class="form-label">Valor Cuota ($)</label>
+                    <input type="number" name="installment_value" id="ed_installment_value" class="form-input" step="0.01">
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label for="ed_total_installments" class="form-label">Total Cuotas</label>
+                    <input type="number" name="total_installments" id="ed_total_installments" class="form-input">
+                </div>
+            </div>
+
+            {{-- Descripción --}}
+            <div class="form-group">
+                <label for="ed_description" class="form-label">Descripción / Artículo *</label>
+                <input type="text" name="description" id="ed_description" class="form-input" required>
+            </div>
+
             <div class="form-group">
                 <label for="ed_status" class="form-label">Estado *</label>
-                <select name="status" id="ed_status" required>
+                <select name="status" id="ed_status" class="form-input" required>
                     <option value="activo">Activo</option>
                     <option value="pagado">Pagado</option>
                     <option value="cancelado">Cancelado</option>
@@ -409,15 +456,34 @@ document.addEventListener('DOMContentLoaded', function () {
     @endif
 });
 
+function toggleInstallmentFields(mode) {
+    const type = document.getElementById(mode === 'create' ? 'cr_type' : 'ed_type').value;
+    const installmentFields = document.getElementById(mode === 'create' ? 'create_installment_fields' : 'edit_installment_fields');
+    const clientContainer = document.getElementById(mode === 'create' ? 'create_client_container' : 'edit_client_container');
+
+    if (type === 'personal') {
+        installmentFields.style.display = 'grid';
+        clientContainer.style.display = 'none';
+    } else {
+        installmentFields.style.display = 'none';
+        clientContainer.style.display = 'block';
+    }
+}
+
 function openEditCreditModal(credit) {
     document.getElementById('editCreditForm').action    = `/credits/${credit.id}`;
+    document.getElementById('ed_type').value            = credit.type;
     document.getElementById('ed_client_id').value       = credit.client_id || '';
     document.getElementById('ed_creditor_name').value   = credit.creditor_name;
     document.getElementById('ed_description').value     = credit.description;
     document.getElementById('ed_total_amount').value    = credit.total_amount;
+    document.getElementById('ed_installment_value').value = credit.installment_value || '';
+    document.getElementById('ed_total_installments').value = credit.total_installments || '';
     document.getElementById('ed_credit_date').value     = credit.credit_date;
     document.getElementById('ed_status').value          = credit.status;
     document.getElementById('ed_notes').value           = credit.notes || '';
+
+    toggleInstallmentFields('edit');
     document.getElementById('editCreditModal').classList.add('open');
 }
 
