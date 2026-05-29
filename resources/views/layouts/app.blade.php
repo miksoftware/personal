@@ -56,6 +56,14 @@
                     </a>
                 </li>
 
+                <!-- Gastos -->
+                <li class="sidebar-menu-item">
+                    <a href="{{ route('expenses.index') }}" class="sidebar-menu-link {{ Route::is('expenses.*') ? 'active' : '' }}">
+                        <i class="bi bi-cart-dash"></i>
+                        <span>Gastos / Compras</span>
+                    </a>
+                </li>
+
                 <!-- Clientes -->
                 <li class="sidebar-menu-item">
                     <a href="{{ route('clients.index') }}" class="sidebar-menu-link {{ Route::is('clients.*') ? 'active' : '' }}">
