@@ -22,7 +22,9 @@ class ExpenseController extends Controller
             ->when($search, function ($query) use ($search) {
                 $query->where('description', 'like', "%{$search}%")
                       ->orWhere('category', 'like', "%{$search}%")
-                      ->orWhere('method', 'like', "%{$search}%");
+                      ->orWhereHas('bankAccount', function ($q) use ($search) {
+                          $q->where('name', 'like', "%{$search}%");
+                      });
             })
             ->orderBy('expense_date', 'desc')
             ->orderBy('created_at', 'desc')
@@ -34,7 +36,7 @@ class ExpenseController extends Controller
     }
 
     /**
-     * Store a new expense and update bank balance if applicable.
+     * Store a new expense and update bank balance.
      */
     public function store(Request $request): RedirectResponse
     {
@@ -42,8 +44,7 @@ class ExpenseController extends Controller
             'description'     => ['required', 'string', 'max:255'],
             'category'        => ['nullable', 'string', 'max:255'],
             'amount'          => ['required', 'numeric', 'min:0.01'],
-            'method'          => ['required', 'string', 'max:255'],
-            'bank_account_id' => ['nullable', 'exists:bank_accounts,id'],
+            'bank_account_id' => ['required', 'exists:bank_accounts,id'],
             'expense_date'    => ['required', 'date'],
             'reference'       => ['nullable', 'string', 'max:255'],
             'notes'           => ['nullable', 'string'],
@@ -51,18 +52,16 @@ class ExpenseController extends Controller
             'description.required' => 'La descripción es obligatoria.',
             'amount.required'      => 'El monto es obligatorio.',
             'amount.min'           => 'El monto debe ser mayor a cero.',
-            'method.required'      => 'El medio de pago es obligatorio.',
+            'bank_account_id.required' => 'Debes seleccionar la cuenta bancaria de origen.',
             'expense_date.required' => 'La fecha es obligatoria.',
         ]);
 
         DB::transaction(function () use ($validated) {
             $expense = Expense::create($validated);
 
-            // Si se seleccionó una cuenta bancaria, descontar el saldo
-            if ($expense->bank_account_id) {
-                $account = BankAccount::find($expense->bank_account_id);
-                $account->decrement('current_balance', $expense->amount);
-            }
+            // Descontar del saldo de la cuenta
+            $account = BankAccount::find($expense->bank_account_id);
+            $account->decrement('current_balance', $expense->amount);
         });
 
         return redirect()->route('expenses.index')
@@ -78,31 +77,26 @@ class ExpenseController extends Controller
             'description'     => ['required', 'string', 'max:255'],
             'category'        => ['nullable', 'string', 'max:255'],
             'amount'          => ['required', 'numeric', 'min:0.01'],
-            'method'          => ['required', 'string', 'max:255'],
-            'bank_account_id' => ['nullable', 'exists:bank_accounts,id'],
+            'bank_account_id' => ['required', 'exists:bank_accounts,id'],
             'expense_date'    => ['required', 'date'],
             'reference'       => ['nullable', 'string', 'max:255'],
             'notes'           => ['nullable', 'string'],
         ]);
 
         DB::transaction(function () use ($validated, $expense) {
-            // Revertir el saldo anterior si existía cuenta bancaria
-            if ($expense->bank_account_id) {
-                $oldAccount = BankAccount::find($expense->bank_account_id);
-                if ($oldAccount) {
-                    $oldAccount->increment('current_balance', $expense->amount);
-                }
+            // Revertir el saldo anterior
+            $oldAccount = BankAccount::find($expense->bank_account_id);
+            if ($oldAccount) {
+                $oldAccount->increment('current_balance', $expense->amount);
             }
 
             // Actualizar el gasto
             $expense->update($validated);
 
-            // Aplicar el nuevo saldo si existe cuenta bancaria
-            if ($expense->bank_account_id) {
-                $newAccount = BankAccount::find($expense->bank_account_id);
-                if ($newAccount) {
-                    $newAccount->decrement('current_balance', $expense->amount);
-                }
+            // Aplicar el nuevo saldo
+            $newAccount = BankAccount::find($expense->bank_account_id);
+            if ($newAccount) {
+                $newAccount->decrement('current_balance', $expense->amount);
             }
         });
 

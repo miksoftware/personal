@@ -78,7 +78,7 @@
                         <th>Fecha</th>
                         <th>Descripción</th>
                         <th>Categoría</th>
-                        <th>Medio de Pago</th>
+                        <th>Cuenta Origen</th>
                         <th style="text-align:right;">Monto</th>
                         <th style="width:100px; text-align:center;">Acciones</th>
                     </tr>
@@ -101,13 +101,8 @@
                                 </span>
                             </td>
                             <td>
-                                <div style="font-size:13px; color:var(--silver-light);">
-                                    {{ $expense->method_label }}
-                                    @if($expense->bankAccount)
-                                        <div style="font-size:10px; color:var(--salmon);">
-                                            <i class="bi bi-bank"></i> {{ $expense->bankAccount->name }}
-                                        </div>
-                                    @endif
+                                <div style="font-size:13px; color:var(--salmon); font-weight:600;">
+                                    <i class="bi bi-bank"></i> {{ $expense->bankAccount->name }}
                                 </div>
                             </td>
                             <td style="text-align:right; font-weight:700; color:#ef5350; font-size:15px;">
@@ -183,30 +178,18 @@
                 </div>
             </div>
 
-            {{-- Medio de Pago + Cuenta --}}
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-                <div class="form-group">
-                    <label for="ex_method" class="form-label">Medio de Pago *</label>
-                    <select name="method" id="ex_method" class="form-input" required>
-                        <option value="efectivo" {{ old('method') === 'efectivo' ? 'selected' : '' }}>Efectivo</option>
-                        <option value="nequi" {{ old('method') === 'nequi' ? 'selected' : '' }}>Nequi</option>
-                        <option value="bancolombia" {{ old('method') === 'bancolombia' ? 'selected' : '' }}>Bancolombia</option>
-                        <option value="daviplata" {{ old('method') === 'daviplata' ? 'selected' : '' }}>Daviplata</option>
-                        <option value="transferencia" {{ old('method') === 'transferencia' ? 'selected' : '' }}>Transferencia</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="ex_bank_account_id" class="form-label">Cuenta Bancaria <span style="color:rgba(255,255,255,0.3); font-size:11px;">(opcional)</span></label>
-                    <select name="bank_account_id" id="ex_bank_account_id" class="form-input">
-                        <option value="">-- No descontar de cuenta --</option>
-                        @foreach($bankAccounts as $account)
-                            <option value="{{ $account->id }}" {{ old('bank_account_id') == $account->id ? 'selected' : '' }}>
-                                {{ $account->name }} (${{ number_format($account->current_balance, 2) }})
-                            </option>
-                        @endforeach
-                    </select>
-                    <p style="font-size:10px; color:rgba(255,255,255,0.35); margin-top:4px;">Se descontará automáticamente del saldo.</p>
-                </div>
+            {{-- Cuenta Bancaria --}}
+            <div class="form-group">
+                <label for="ex_bank_account_id" class="form-label">Cuenta Bancaria de Origen *</label>
+                <select name="bank_account_id" id="ex_bank_account_id" class="form-input" required>
+                    <option value="">-- Selecciona una cuenta --</option>
+                    @foreach($bankAccounts as $account)
+                        <option value="{{ $account->id }}" {{ old('bank_account_id') == $account->id ? 'selected' : '' }}>
+                            {{ $account->name }} (${{ number_format($account->current_balance, 2) }})
+                        </option>
+                    @endforeach
+                </select>
+                <p style="font-size:10px; color:rgba(255,255,255,0.35); margin-top:4px;">Se descontará automáticamente del saldo de la cuenta elegida.</p>
             </div>
 
             {{-- Fecha + Referencia --}}
@@ -272,28 +255,16 @@
                 </div>
             </div>
 
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-                <div class="form-group">
-                    <label for="ed_method" class="form-label">Medio de Pago *</label>
-                    <select name="method" id="ed_method" class="form-input" required>
-                        <option value="efectivo">Efectivo</option>
-                        <option value="nequi">Nequi</option>
-                        <option value="bancolombia">Bancolombia</option>
-                        <option value="daviplata">Daviplata</option>
-                        <option value="transferencia">Transferencia</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="ed_bank_account_id" class="form-label">Cuenta Bancaria</label>
-                    <select name="bank_account_id" id="ed_bank_account_id" class="form-input">
-                        <option value="">-- No descontar de cuenta --</option>
-                        @foreach($bankAccounts as $account)
-                            <option value="{{ $account->id }}">
-                                {{ $account->name }} (${{ number_format($account->current_balance, 2) }})
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
+            {{-- Cuenta Bancaria --}}
+            <div class="form-group">
+                <label for="ed_bank_account_id" class="form-label">Cuenta Bancaria de Origen *</label>
+                <select name="bank_account_id" id="ed_bank_account_id" class="form-input" required>
+                    @foreach($bankAccounts as $account)
+                        <option value="{{ $account->id }}">
+                            {{ $account->name }} (${{ number_format($account->current_balance, 2) }})
+                        </option>
+                    @endforeach
+                </select>
             </div>
 
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
@@ -386,7 +357,6 @@ function openEditExpenseModal(expense) {
     document.getElementById('ed_description').value   = expense.description;
     document.getElementById('ed_category').value      = expense.category || '';
     document.getElementById('ed_amount').value        = expense.amount;
-    document.getElementById('ed_method').value        = expense.method;
     document.getElementById('ed_bank_account_id').value = expense.bank_account_id || '';
     document.getElementById('ed_expense_date').value  = expense.expense_date;
     document.getElementById('ed_reference').value     = expense.reference || '';
