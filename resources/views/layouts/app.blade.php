@@ -56,6 +56,14 @@
                     </a>
                 </li>
 
+                <!-- Ingresos -->
+                <li class="sidebar-menu-item">
+                    <a href="{{ route('incomes.index') }}" class="sidebar-menu-link {{ Route::is('incomes.*') ? 'active' : '' }}">
+                        <i class="bi bi-cash-coin"></i>
+                        <span>Ingresos</span>
+                    </a>
+                </li>
+
                 <!-- Gastos -->
                 <li class="sidebar-menu-item">
                     <a href="{{ route('expenses.index') }}" class="sidebar-menu-link {{ Route::is('expenses.*') ? 'active' : '' }}">

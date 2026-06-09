@@ -75,9 +75,12 @@
                             </td>
                             <td style="text-align:center;">
                                 <div class="actions-cell" style="justify-content:center;">
-                                    <button type="button" class="btn-action edit" title="Editar cuenta"
-                                        onclick="openEditAccountModal({{ json_encode($account) }})">
-                                        <i class="bi bi-pencil-fill"></i>
+                                    <a href="{{ route('bank-accounts.show', $account) }}" class="btn-action view" title="Ver movimientos">
+                                        <i class="bi bi-eye-fill"></i>
+                                    </a>
+                                    <button type="button" class="btn-action edit" title="Ajustar saldo"
+                                        onclick="openAdjustAccountModal({{ json_encode($account) }})">
+                                        <i class="bi bi-sliders"></i>
                                     </button>
                                     <button type="button" class="btn-action delete" title="Eliminar cuenta"
                                         onclick="openDeleteAccountModal({{ $account->id }}, '{{ addslashes($account->name) }}')">
@@ -129,39 +132,39 @@
     </div>
 </div>
 
-{{-- MODAL EDITAR --}}
-<div class="modal" id="editAccountModal">
-    <div class="modal-backdrop" id="editAccountBackdrop"></div>
+{{-- MODAL AJUSTE --}}
+<div class="modal" id="adjustAccountModal">
+    <div class="modal-backdrop" id="adjustAccountBackdrop"></div>
     <div class="modal-content" style="max-width:450px;">
         <div class="modal-header">
-            <h3 class="modal-title"><i class="bi bi-pencil-square" style="color:#42a5f5;"></i> Editar Cuenta</h3>
-            <button class="modal-close" id="btnCloseEditAccount">&times;</button>
+            <h3 class="modal-title"><i class="bi bi-sliders" style="color:#42a5f5;"></i> Ajuste de Saldo</h3>
+            <button class="modal-close" id="btnCloseAdjustAccount">&times;</button>
         </div>
-        <form id="editAccountForm" method="POST">
+        <form id="adjustAccountForm" method="POST">
             @csrf
-            @method('PUT')
             <div class="form-group">
-                <label class="form-label">Nombre*</label>
-                <input type="text" name="name" id="ed_name" class="form-input" required>
+                <label class="form-label">Cuenta</label>
+                <input type="text" id="adj_name" class="form-input" readonly>
             </div>
             <div class="form-group">
-                <label class="form-label">Saldo Actual ($)*</label>
-                <input type="number" name="current_balance" id="ed_balance" class="form-input" step="0.01" min="0" required>
+                <label class="form-label">Saldo Guardado en el Sistema</label>
+                <input type="text" id="adj_old_balance" class="form-input" readonly>
             </div>
             <div class="form-group">
-                <label class="form-label">Número de Cuenta</label>
-                <input type="text" name="account_number" id="ed_number" class="form-input">
+                <label class="form-label">Saldo Actual Real de la Cuenta ($)*</label>
+                <input type="number" name="current_balance" id="adj_balance" class="form-input" step="0.01" min="0" required>
             </div>
             <div class="form-group">
-                <label class="form-label">Estado</label>
-                <select name="is_active" id="ed_active" class="form-input">
-                    <option value="1">Activa</option>
-                    <option value="0">Inactiva</option>
-                </select>
+                <label class="form-label">Fecha del Ajuste *</label>
+                <input type="date" name="adjustment_date" id="adj_date" class="form-input" value="{{ date('Y-m-d') }}" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Notas</label>
+                <textarea name="notes" id="adj_notes" rows="3" class="form-input" placeholder="Ej. conteo real, retiro no registrado, ajuste por diferencia..."></textarea>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn-secondary" id="btnCancelEditAccount">Cancelar</button>
-                <button type="submit" class="btn-primary-action">Guardar Cambios</button>
+                <button type="button" class="btn-secondary" id="btnCancelAdjustAccount">Cancelar</button>
+                <button type="submit" class="btn-primary-action">Registrar Ajuste</button>
             </div>
         </form>
     </div>
@@ -194,22 +197,24 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btnCloseCreateAccount').addEventListener('click', closeCreate);
     document.getElementById('btnCancelCreateAccount').addEventListener('click', closeCreate);
 
-    const modalEdit = document.getElementById('editAccountModal');
-    const closeEdit = () => modalEdit.classList.remove('open');
-    document.getElementById('btnCloseEditAccount').addEventListener('click', closeEdit);
-    document.getElementById('btnCancelEditAccount').addEventListener('click', closeEdit);
+    const modalAdjust = document.getElementById('adjustAccountModal');
+    const closeAdjust = () => modalAdjust.classList.remove('open');
+    document.getElementById('btnCloseAdjustAccount').addEventListener('click', closeAdjust);
+    document.getElementById('btnCancelAdjustAccount').addEventListener('click', closeAdjust);
+    document.getElementById('adjustAccountBackdrop').addEventListener('click', closeAdjust);
 
     const modalDelete = document.getElementById('deleteAccountModal');
     const closeDelete = () => modalDelete.classList.remove('open');
     document.getElementById('btnCancelDeleteAccount').addEventListener('click', closeDelete);
 
-        window.openEditAccountModal = function(account) {
-        document.getElementById('editAccountForm').action = `/bank-accounts/${account.id}`;
-        document.getElementById('ed_name').value = account.name;
-        document.getElementById('ed_balance').value = account.current_balance;
-        document.getElementById('ed_number').value = account.account_number || '';
-        document.getElementById('ed_active').value = account.is_active ? "1" : "0";
-        modalEdit.classList.add('open');
+        window.openAdjustAccountModal = function(account) {
+        document.getElementById('adjustAccountForm').action = `/bank-accounts/${account.id}/adjustment`;
+        document.getElementById('adj_name').value = account.name;
+        document.getElementById('adj_old_balance').value = '$' + Number(account.current_balance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        document.getElementById('adj_balance').value = account.current_balance;
+        document.getElementById('adj_date').value = '{{ date('Y-m-d') }}';
+        document.getElementById('adj_notes').value = '';
+        modalAdjust.classList.add('open');
     };
 
     window.openDeleteAccountModal = function(id, name) {

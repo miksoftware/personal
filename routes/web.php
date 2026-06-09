@@ -12,6 +12,7 @@ use App\Http\Controllers\LoanController;
 use App\Http\Controllers\BankAccountController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\DatabaseImportController;
+use App\Http\Controllers\IncomeController;
 use Illuminate\Support\Facades\Auth;
 
 // Redirect root URL
@@ -63,7 +64,11 @@ Route::middleware('auth')->group(function () {
     Route::post('/db-import', [DatabaseImportController::class, 'import'])->name('db-import.import');
 
     // Bank Accounts
-    Route::resource('bank-accounts', BankAccountController::class)->except(['create', 'edit', 'show']);
+    Route::resource('bank-accounts', BankAccountController::class)->except(['create', 'edit']);
+    Route::post('/bank-accounts/{bank_account}/adjustment', [BankAccountController::class, 'storeAdjustment'])->name('bank-accounts.adjustment');
+
+    // Incomes (Ingresos generales)
+    Route::resource('incomes', IncomeController::class)->except(['create', 'edit', 'show']);
 
     // Expenses (Gastos)
     Route::resource('expenses', ExpenseController::class)->except(['create', 'edit', 'show']);

@@ -14,4 +14,19 @@ class BankAccount extends Model
     {
         return $this->hasMany(Payment::class);
     }
+
+    public function incomes(): HasMany
+    {
+        return $this->hasMany(Income::class);
+    }
+
+    public function expenses(): HasMany
+    {
+        return $this->hasMany(Expense::class);
+    }
+
+    public function adjustments(): HasMany
+    {
+        return $this->hasMany(BankAccountAdjustment::class);
+    }
 }
