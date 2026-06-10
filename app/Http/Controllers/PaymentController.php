@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Client;
+use App\Models\Credit;
 use App\Models\Development;
 use App\Models\Payment;
 use Illuminate\Http\RedirectResponse;
@@ -11,6 +12,9 @@ use Illuminate\View\View;
 
 use App\Models\BankAccount;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+use App\Models\License;
 
 class PaymentController extends Controller
 {
@@ -39,7 +43,17 @@ class PaymentController extends Controller
     {
         $validated = $request->validate([
             'client_id'            => ['required', 'exists:clients,id'],
-            'bank_account_id'      => ['required', 'exists:bank_accounts,id'],
+            'payment_target'       => ['nullable', 'string', 'in:bank_account,credit'],
+            'bank_account_id'      => [
+                Rule::requiredIf(fn () => $request->input('payment_target', 'bank_account') === 'bank_account'),
+                'nullable',
+                'exists:bank_accounts,id',
+            ],
+            'credit_id'            => [
+                Rule::requiredIf(fn () => $request->input('payment_target') === 'credit'),
+                'nullable',
+                'exists:credits,id',
+            ],
             'development_id'       => ['nullable', 'exists:developments,id'],
             'license_id'           => ['nullable', 'exists:licenses,id'],
             'license_payment_type' => ['nullable', 'string', 'in:mensualidad,instalacion'],
@@ -48,31 +62,85 @@ class PaymentController extends Controller
             'payment_date'         => ['required', 'date'],
             'reference'            => ['nullable', 'string', 'max:255'],
             'notes'                => ['nullable', 'string'],
+            'redirect_to'          => ['nullable', 'string', 'in:licenses'],
         ], [
             'client_id.required'       => 'El cliente es obligatorio.',
             'bank_account_id.required' => 'La cuenta de destino es obligatoria.',
+            'credit_id.required'       => 'Debes seleccionar el crédito al que deseas abonar.',
             'amount.required'          => 'El monto es obligatorio.',
             'amount.min'               => 'El monto debe ser mayor a cero.',
             'payment_date.required'    => 'La fecha del pago es obligatoria.',
         ]);
 
+        $paymentTarget = $validated['payment_target'] ?? 'bank_account';
+        $redirectRoute = ($validated['redirect_to'] ?? null) === 'licenses'
+            ? route('licenses.index')
+            : route('payments.index');
+
+        if ($paymentTarget === 'credit') {
+            DB::transaction(function () use ($validated) {
+                $credit = Credit::withSum('payments', 'amount')->findOrFail($validated['credit_id']);
+                $license = !empty($validated['license_id'])
+                    ? License::find($validated['license_id'])
+                    : null;
+
+                if ((int) $credit->client_id !== (int) $validated['client_id']) {
+                    throw ValidationException::withMessages([
+                        'credit_id' => 'El crédito seleccionado no pertenece al cliente de esta licencia.',
+                    ]);
+                }
+
+                if ($credit->status !== 'activo') {
+                    throw ValidationException::withMessages([
+                        'credit_id' => 'Solo puedes abonar pagos a créditos activos.',
+                    ]);
+                }
+
+                if ($credit->balance <= 0) {
+                    throw ValidationException::withMessages([
+                        'credit_id' => 'El crédito seleccionado ya no tiene saldo pendiente.',
+                    ]);
+                }
+
+                $typeLabel = ($validated['license_payment_type'] ?? null) === 'instalacion'
+                    ? 'Instalación'
+                    : 'Mensualidad';
+
+                $concept = $license
+                    ? "Canje {$typeLabel}: {$license->url}"
+                    : 'Abono aplicado desde pago de licencia';
+
+                $credit->payments()->create([
+                    'amount' => $validated['amount'],
+                    'concept' => $concept,
+                    'method' => 'canje',
+                    'payment_date' => $validated['payment_date'],
+                    'reference' => $validated['reference'] ?? null,
+                    'notes' => $validated['notes'] ?? null,
+                ]);
+
+                $credit->refresh();
+                if ($credit->balance <= 0 && $credit->status === 'activo') {
+                    $credit->update(['status' => 'pagado']);
+                }
+            });
+
+            return redirect($redirectRoute)
+                ->with('status', '¡Pago de licencia aplicado al crédito correctamente, sin mover saldo en cuentas!');
+        }
+
         DB::transaction(function () use ($validated) {
-            // Obtener la cuenta bancaria
             $account = BankAccount::findOrFail($validated['bank_account_id']);
-            
-            // Si el método no se envió explícitamente (o para normalizar), usamos el nombre de la cuenta
+
             if (!isset($validated['method']) || empty($validated['method'])) {
                 $validated['method'] = strtolower($account->name);
             }
 
-            // Crear el pago
-            $payment = Payment::create($validated);
-
-            // Actualizar el saldo de la cuenta
+            Payment::create($validated);
             $account->increment('current_balance', $validated['amount']);
         });
 
-        return redirect()->route('payments.index')
+        return redirect($redirectRoute)
             ->with('status', '¡Pago registrado y saldo actualizado exitosamente!');
     }
 

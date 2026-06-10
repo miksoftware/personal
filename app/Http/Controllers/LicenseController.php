@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Credit;
 use App\Models\License;
 use App\Models\Client;
 use Illuminate\Http\Request;
@@ -24,13 +25,29 @@ class LicenseController extends Controller
                         $q->where('name', 'like', "%{$search}%");
                     });
             })
-            ->orderBy('created_at', 'desc')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->paginate(10);
 
         // Fetch all clients for the modal select dropdown
         $clients = Client::orderBy('name')->get();
 
-        return view('licenses.index', compact('licenses', 'clients', 'search'));
+        $creditsByClient = Credit::withSum('payments', 'amount')
+            ->where('status', 'activo')
+            ->whereNotNull('client_id')
+            ->orderBy('credit_date', 'desc')
+            ->get()
+            ->filter(fn ($credit) => $credit->balance > 0)
+            ->groupBy('client_id')
+            ->map(fn ($credits) => $credits->map(fn ($credit) => [
+                'id' => $credit->id,
+                'description' => $credit->description,
+                'creditor_name' => $credit->creditor_name,
+                'balance' => round($credit->balance, 2),
+            ])->values())
+            ->toArray();
+
+        return view('licenses.index', compact('licenses', 'clients', 'search', 'creditsByClient'));
     }
 
     /**

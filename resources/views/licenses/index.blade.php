@@ -575,7 +575,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (backdropSys)  backdropSys.addEventListener('click', closeSys);
 
     // Auto-open create modal if there are validation errors (form was submitted)
-    @if($errors->any())
+    @if($errors->any() && !old('license_id'))
         openCreate();
     @endif
 });
@@ -829,56 +829,91 @@ async function doSystemToggle(action) {
         <p id="licensePaymentDesc" style="color:var(--silver); font-size:13px; margin: -8px 0 16px; padding: 0 28px;">
             Registrar ingreso de dinero por licencia.
         </p>
+        <div id="licensePaymentTargetNote" class="modal-note" style="margin:0 28px 16px;">
+            <i class="bi bi-info-circle-fill"></i>
+            <span>Elige si este pago entra a una cuenta bancaria o si se abonará directamente a un crédito sin mover saldos bancarios.</span>
+        </div>
         <form action="{{ route('payments.store') }}" method="POST" autocomplete="off">
             @csrf
             <input type="hidden" name="client_id" id="lp_client_id">
             <input type="hidden" name="license_id" id="lp_license_id">
             <input type="hidden" name="license_payment_type" id="lp_type">
             <input type="hidden" name="method" value="transferencia">
+            <input type="hidden" name="redirect_to" value="licenses">
 
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
                 <div class="form-group">
                     <label class="form-label">Monto a Recibir ($)*</label>
-                    <input type="number" name="amount" id="lp_amount" class="form-input" step="0.01" required>
+                    <input type="number" name="amount" id="lp_amount" class="form-input" step="0.01" value="{{ old('amount') }}" required>
                 </div>
-                @php $bankAccounts = \App\Models\BankAccount::where('is_active', true)->get(); @endphp
                 <div class="form-group">
-                    <label class="form-label">Cuenta de Destino*</label>
-                    <select name="bank_account_id" id="lp_bank_account_id" class="form-input" required>
-                        <option value="">Seleccionar cuenta</option>
-                        @foreach($bankAccounts as $acc)
-                            <option value="{{ $acc->id }}">{{ $acc->name }} (${{ number_format($acc->current_balance, 0) }})</option>
-                        @endforeach
+                    <label class="form-label">Aplicar Pago a*</label>
+                    <select name="payment_target" id="lp_payment_target" class="form-input" required>
+                        <option value="bank_account" {{ old('payment_target', 'bank_account') === 'bank_account' ? 'selected' : '' }}>Cuenta bancaria</option>
+                        <option value="credit" {{ old('payment_target') === 'credit' ? 'selected' : '' }}>Abonar a crédito</option>
                     </select>
+                </div>
+            </div>
+
+            @php $bankAccounts = \App\Models\BankAccount::where('is_active', true)->get(); @endphp
+            <div id="lpBankAccountGroup" class="form-group">
+                <label class="form-label">Cuenta de Destino*</label>
+                <select name="bank_account_id" id="lp_bank_account_id" class="form-input">
+                    <option value="">Seleccionar cuenta</option>
+                    @foreach($bankAccounts as $acc)
+                        <option value="{{ $acc->id }}" {{ (string) old('bank_account_id') === (string) $acc->id ? 'selected' : '' }}>
+                            {{ $acc->name }} (${{ number_format($acc->current_balance, 0) }})
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div id="lpCreditGroup" class="form-group" style="display:none;">
+                <label class="form-label">Crédito a Abonar*</label>
+                <select name="credit_id" id="lp_credit_id" class="form-input">
+                    <option value="">Seleccionar crédito</option>
+                </select>
+                <div id="lpCreditHelp" style="font-size:11px; color:rgba(255,255,255,0.38); margin-top:6px;">
+                    Solo se muestran créditos activos con saldo pendiente del cliente de esta licencia.
                 </div>
             </div>
 
             <div class="form-group">
                 <label class="form-label">Fecha del Pago*</label>
-                <input type="date" name="payment_date" class="form-input" value="{{ date('Y-m-d') }}" required>
+                <input type="date" name="payment_date" class="form-input" value="{{ old('payment_date', date('Y-m-d')) }}" required>
             </div>
 
             <div class="form-group">
                 <label class="form-label">Referencia / Notas</label>
-                <input type="text" name="notes" id="lp_notes" class="form-input" placeholder="Ej. Pago mes de mayo">
+                <input type="text" name="notes" id="lp_notes" class="form-input" value="{{ old('notes') }}" placeholder="Ej. Pago mes de mayo">
             </div>
 
             <div class="modal-footer">
                 <button type="button" class="btn-secondary" id="btnCancelLicensePayment">Cancelar</button>
-                <button type="submit" class="btn-primary-action">Confirmar Ingreso</button>
+                <button type="submit" class="btn-primary-action" id="lpSubmitButton">Confirmar Ingreso</button>
             </div>
         </form>
     </div>
 </div>
 
+@php
+    $oldPaymentLicense = old('license_id') ? \App\Models\License::find(old('license_id')) : null;
+@endphp
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    // ... (scripts existentes)
-
-    // ── Register License Payment ────────────────────────────────
+    const creditsByClient = @json($creditsByClient);
     const modalLP = document.getElementById('registerLicensePaymentModal');
     const modalSelector = document.getElementById('licensePaymentSelectorModal');
-    
+    const paymentTarget = document.getElementById('lp_payment_target');
+    const bankAccountGroup = document.getElementById('lpBankAccountGroup');
+    const creditGroup = document.getElementById('lpCreditGroup');
+    const bankAccountSelect = document.getElementById('lp_bank_account_id');
+    const creditSelect = document.getElementById('lp_credit_id');
+    const paymentDesc = document.getElementById('licensePaymentDesc');
+    const paymentNote = document.getElementById('licensePaymentTargetNote');
+    const submitButton = document.getElementById('lpSubmitButton');
+
     const closeLP = () => modalLP.classList.remove('open');
     const closeSelector = () => modalSelector.classList.remove('open');
 
@@ -891,18 +926,72 @@ document.addEventListener('DOMContentLoaded', function () {
 
     let currentLicenseForPayment = null;
 
+    function formatCurrency(value) {
+        return new Intl.NumberFormat('es-CO', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(Number(value || 0));
+    }
+
+    function renderCreditOptions(clientId, selectedCreditId = '') {
+        const credits = creditsByClient[String(clientId)] || creditsByClient[clientId] || [];
+        const options = ['<option value="">Seleccionar crédito</option>'];
+
+        if (credits.length === 0) {
+            options.push('<option value="" disabled>Sin créditos activos disponibles</option>');
+        } else {
+            credits.forEach((credit) => {
+                const selected = String(selectedCreditId) === String(credit.id) ? 'selected' : '';
+                const label = `${credit.description} - ${credit.creditor_name} (Saldo: $${formatCurrency(credit.balance)})`;
+                options.push(`<option value="${credit.id}" ${selected}>${label}</option>`);
+            });
+        }
+
+        creditSelect.innerHTML = options.join('');
+    }
+
+    function syncPaymentTarget() {
+        const target = paymentTarget.value || 'bank_account';
+        const isCredit = target === 'credit';
+
+        bankAccountGroup.style.display = isCredit ? 'none' : 'block';
+        creditGroup.style.display = isCredit ? 'block' : 'none';
+
+        bankAccountSelect.required = !isCredit;
+        creditSelect.required = isCredit;
+
+        if (isCredit) {
+            bankAccountSelect.value = '';
+            submitButton.textContent = 'Confirmar Abono';
+            paymentNote.innerHTML = '<i class="bi bi-info-circle-fill"></i><span>Este pago se registrará como abono a un crédito y no generará movimiento en tus cuentas bancarias.</span>';
+            if (currentLicenseForPayment?.client_id) {
+                renderCreditOptions(currentLicenseForPayment.client_id, @json(old('credit_id')));
+            }
+        } else {
+            creditSelect.value = '';
+            submitButton.textContent = 'Confirmar Ingreso';
+            paymentNote.innerHTML = '<i class="bi bi-info-circle-fill"></i><span>Este pago ingresará a la cuenta bancaria seleccionada y actualizará su saldo.</span>';
+        }
+
+        if (currentLicenseForPayment?.url) {
+            const typeLabel = document.getElementById('lp_type').value === 'instalacion' ? 'Instalación' : 'Mensualidad';
+            paymentDesc.textContent = isCredit
+                ? `Aplicar pago de ${typeLabel} de ${currentLicenseForPayment.url} a un crédito del cliente`
+                : `Registrar pago de ${typeLabel} para ${currentLicenseForPayment.url}`;
+        }
+    }
+
     window.openLicensePaymentSelectorModal = function(license) {
         currentLicenseForPayment = license;
         document.getElementById('paymentSelectorUrl').textContent = license.url;
-        
-        // Mostrar/Ocultar botón de instalación según si tiene valor
+
         const btnSetup = document.getElementById('btnPaySetup');
         if (parseFloat(license.setup_fee) > 0) {
             btnSetup.style.display = 'flex';
         } else {
             btnSetup.style.display = 'none';
         }
-        
+
         modalSelector.classList.add('open');
     };
 
@@ -916,18 +1005,36 @@ document.addEventListener('DOMContentLoaded', function () {
         openRegisterLicensePaymentForm(currentLicenseForPayment, 'instalacion');
     });
 
+    paymentTarget.addEventListener('change', syncPaymentTarget);
+
     function openRegisterLicensePaymentForm(license, type) {
         const amount = type === 'instalacion' ? license.setup_fee : license.monthly_fee;
         const typeLabel = type === 'instalacion' ? 'Instalación' : 'Mensualidad';
-        
+
+        currentLicenseForPayment = license;
         document.getElementById('lp_client_id').value = license.client_id;
         document.getElementById('lp_license_id').value = license.id;
         document.getElementById('lp_type').value = type;
         document.getElementById('lp_amount').value = amount;
         document.getElementById('lp_notes').value = `Pago ${typeLabel} - ${license.url}`;
-        document.getElementById('licensePaymentDesc').textContent = `Registrar pago de ${typeLabel} para ${license.url}`;
-        
+        paymentTarget.value = 'bank_account';
+        renderCreditOptions(license.client_id);
+        syncPaymentTarget();
+
         modalLP.classList.add('open');
     }
+
+    @if(old('license_id'))
+        currentLicenseForPayment = {
+            id: @json(old('license_id')),
+            client_id: @json(old('client_id')),
+            url: @json(optional($oldPaymentLicense)->url),
+            setup_fee: @json(optional($oldPaymentLicense)->setup_fee),
+            monthly_fee: @json(optional($oldPaymentLicense)->monthly_fee),
+        };
+        renderCreditOptions(@json(old('client_id')), @json(old('credit_id')));
+        syncPaymentTarget();
+        modalLP.classList.add('open');
+    @endif
 });
 </script>
