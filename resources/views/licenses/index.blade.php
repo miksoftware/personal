@@ -786,12 +786,10 @@ async function doSystemToggle(action) {
 }
 </script>
 
-@endsection
-
 {{-- ==============================================================
      MODAL — SELECCIONAR TIPO DE PAGO
      ============================================================== --}}
-<div class="modal" id="licensePaymentSelectorModal">
+<div class="modal" id="licensePaymentSelectorModal" style="display:none;">
     <div class="modal-backdrop" id="paymentSelectorBackdrop"></div>
     <div class="modal-content" style="max-width:400px; text-align:center;">
         <div class="modal-header">
@@ -817,7 +815,7 @@ async function doSystemToggle(action) {
 {{-- ==============================================================
      MODAL — REGISTRAR PAGO DE LICENCIA (Formulario)
      ============================================================== --}}
-<div class="modal" id="registerLicensePaymentModal">
+<div class="modal" id="registerLicensePaymentModal" style="display:none;">
     <div class="modal-backdrop" id="licensePaymentBackdrop"></div>
     <div class="modal-content" style="max-width:480px;">
         <div class="modal-header">
@@ -913,6 +911,14 @@ document.addEventListener('DOMContentLoaded', function () {
     const paymentDesc = document.getElementById('licensePaymentDesc');
     const paymentNote = document.getElementById('licensePaymentTargetNote');
     const submitButton = document.getElementById('lpSubmitButton');
+
+    if (modalLP) {
+        modalLP.style.display = '';
+    }
+
+    if (modalSelector) {
+        modalSelector.style.display = '';
+    }
 
     const closeLP = () => modalLP.classList.remove('open');
     const closeSelector = () => modalSelector.classList.remove('open');
@@ -1038,3 +1044,5 @@ document.addEventListener('DOMContentLoaded', function () {
     @endif
 });
 </script>
+
+@endsection

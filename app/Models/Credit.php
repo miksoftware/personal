@@ -37,7 +37,15 @@ class Credit extends Model
 
     public function getTotalPaidAttribute(): float
     {
-        return (float) $this->payments_sum_amount;
+        if (array_key_exists('payments_sum_amount', $this->attributes)) {
+            return (float) $this->attributes['payments_sum_amount'];
+        }
+
+        if ($this->relationLoaded('payments')) {
+            return (float) $this->payments->sum('amount');
+        }
+
+        return (float) $this->payments()->sum('amount');
     }
 
     public function getBalanceAttribute(): float

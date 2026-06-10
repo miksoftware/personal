@@ -38,6 +38,7 @@ class CreditController extends Controller
      */
     public function show(Credit $credit): View
     {
+        $credit->loadSum('payments', 'amount');
         $credit->load(['client', 'payments' => fn($q) => $q->orderBy('payment_date', 'desc')->orderBy('created_at', 'desc')]);
         
         $recentClientPayments = collect();
