@@ -66,6 +66,7 @@ class LicenseController extends Controller
             'monthly_fee' => ['required', 'numeric', 'min:0'],
             'setup_fee' => ['required', 'numeric', 'min:0'],
             'next_billing_date' => ['required', 'date'],
+            'next_setup_billing_date' => ['nullable', 'date'],
         ], [
             'client_id.required' => 'El cliente es obligatorio.',
             'client_id.exists' => 'El cliente seleccionado no es válido.',
@@ -80,6 +81,7 @@ class LicenseController extends Controller
             'setup_fee.required' => 'El valor de instalación es obligatorio.',
             'setup_fee.numeric' => 'El valor de instalación debe ser un valor numérico.',
             'next_billing_date.required' => 'La fecha de próxima facturación es obligatoria.',
+            'next_setup_billing_date.date' => 'La fecha de próxima facturación anual no es válida.',
         ]);
 
         // Apply Business Rule: Every 5th license per client is automatically Free
@@ -119,6 +121,7 @@ class LicenseController extends Controller
             'monthly_fee' => ['required', 'numeric', 'min:0'],
             'setup_fee' => ['required', 'numeric', 'min:0'],
             'next_billing_date' => ['required', 'date'],
+            'next_setup_billing_date' => ['nullable', 'date'],
         ], [
             'client_id.required' => 'El cliente es obligatorio.',
             'client_id.exists' => 'El cliente seleccionado no es válido.',
@@ -133,6 +136,7 @@ class LicenseController extends Controller
             'setup_fee.required' => 'El valor de instalación es obligatorio.',
             'setup_fee.numeric' => 'El valor de instalación debe ser un valor numérico.',
             'next_billing_date.required' => 'La fecha de próxima facturación es obligatoria.',
+            'next_setup_billing_date.date' => 'La fecha de próxima facturación anual no es válida.',
         ]);
 
         // If the client changed, recalculate the free status for the new client.

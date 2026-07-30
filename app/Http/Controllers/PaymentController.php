@@ -56,7 +56,7 @@ class PaymentController extends Controller
             ],
             'development_id'       => ['nullable', 'exists:developments,id'],
             'license_id'           => ['nullable', 'exists:licenses,id'],
-            'license_payment_type' => ['nullable', 'string', 'in:mensualidad,instalacion'],
+            'license_payment_type' => ['nullable', 'string', 'in:mensualidad,instalacion,total'],
             'amount'               => ['required', 'numeric', 'min:0.01'],
             'method'               => ['required', 'string'],
             'payment_date'         => ['required', 'date'],
@@ -124,8 +124,16 @@ class PaymentController extends Controller
                     $credit->update(['status' => 'pagado']);
                 }
 
-                if ($license && ($validated['license_payment_type'] ?? null) === 'mensualidad') {
-                    $this->advanceLicenseBillingDate($license);
+                if ($license) {
+                    if (($validated['license_payment_type'] ?? null) === 'mensualidad' || ($validated['license_payment_type'] ?? null) === 'total') {
+                        $this->advanceLicenseBillingDate($license);
+                    }
+                    if (($validated['license_payment_type'] ?? null) === 'instalacion' || ($validated['license_payment_type'] ?? null) === 'total') {
+                        if ($license->next_setup_billing_date) {
+                            $license->next_setup_billing_date = \Carbon\Carbon::parse($license->next_setup_billing_date)->addYear();
+                            $license->save();
+                        }
+                    }
                 }
             });
 
@@ -143,10 +151,18 @@ class PaymentController extends Controller
             Payment::create($validated);
             $account->increment('current_balance', $validated['amount']);
 
-            if (!empty($validated['license_id']) && ($validated['license_payment_type'] ?? null) === 'mensualidad') {
+            if (!empty($validated['license_id'])) {
                 $license = License::find($validated['license_id']);
                 if ($license) {
-                    $this->advanceLicenseBillingDate($license);
+                    if (($validated['license_payment_type'] ?? null) === 'mensualidad' || ($validated['license_payment_type'] ?? null) === 'total') {
+                        $this->advanceLicenseBillingDate($license);
+                    }
+                    if (($validated['license_payment_type'] ?? null) === 'instalacion' || ($validated['license_payment_type'] ?? null) === 'total') {
+                        if ($license->next_setup_billing_date) {
+                            $license->next_setup_billing_date = \Carbon\Carbon::parse($license->next_setup_billing_date)->addYear();
+                            $license->save();
+                        }
+                    }
                 }
             }
         });

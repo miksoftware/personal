@@ -62,7 +62,7 @@
                         <th>Estado</th>
                         <th>Ciclo</th>
                         <th>Instalación</th>
-                        <th>Tarifa Mensual</th>
+                        <th>Valor a Pagar</th>
                         <th>Próx. Facturación</th>
                         <th style="width:90px; text-align:center;">Acciones</th>
                     </tr>
@@ -113,8 +113,24 @@
                                         Gratuita
                                     </span>
                                 @else
+                                    @php
+                                        $cycleMonths = match($license->billing_cycle) {
+                                            'trimestral' => 3,
+                                            'semestral' => 6,
+                                            'anual' => 12,
+                                            default => 1,
+                                        };
+                                        $baseAmount = $license->monthly_fee * $cycleMonths;
+                                        $isSetupExpired = $license->setup_fee > 0 && $license->next_setup_billing_date && \Carbon\Carbon::parse($license->next_setup_billing_date)->startOfDay()->lte(\Carbon\Carbon::now()->startOfDay());
+                                        $isServiceExpired = \Carbon\Carbon::parse($license->next_billing_date)->startOfDay()->lte(\Carbon\Carbon::now()->startOfDay());
+                                        
+                                        $totalAmount = $baseAmount;
+                                        if ($isSetupExpired && $isServiceExpired) {
+                                            $totalAmount += $license->setup_fee;
+                                        }
+                                    @endphp
                                     <span class="license-fee">
-                                        ${{ number_format($license->monthly_fee, 2) }}
+                                        ${{ number_format($totalAmount, 2) }}
                                     </span>
                                 @endif
                             </td>
@@ -128,13 +144,33 @@
                                 @php
                                     $isExpired = \Carbon\Carbon::parse($license->next_billing_date)->startOfDay()->lt(\Carbon\Carbon::now()->startOfDay());
                                     $isExpiringToday = \Carbon\Carbon::parse($license->next_billing_date)->isToday();
+                                    
+                                    $hasSetup = $license->setup_fee > 0;
+                                    $setupExpired = $hasSetup && $license->next_setup_billing_date && \Carbon\Carbon::parse($license->next_setup_billing_date)->startOfDay()->lt(\Carbon\Carbon::now()->startOfDay());
+                                    $setupExpiringToday = $hasSetup && $license->next_setup_billing_date && \Carbon\Carbon::parse($license->next_setup_billing_date)->isToday();
                                 @endphp
-                                <td style="font-size:13px; {{ $isExpired || $isExpiringToday ? 'color: var(--danger, #ff5252); font-weight: 600;' : 'color: var(--silver-light);' }}">
-                                    {{ \Carbon\Carbon::parse($license->next_billing_date)->format('d M Y') }}
-                                    @if($isExpired)
-                                        <span style="font-size: 10px; margin-left: 4px;">(Vencida)</span>
-                                    @elseif($isExpiringToday)
-                                        <span style="font-size: 10px; margin-left: 4px;">(Vence hoy)</span>
+                                <td>
+                                    {{-- Service Date --}}
+                                    <div style="font-size:13px; {{ $isExpired || $isExpiringToday ? 'color: var(--danger, #ff5252); font-weight: 600;' : 'color: var(--silver-light);' }}">
+                                        @if($hasSetup) <span style="font-size:11px; opacity:0.8;">Servicio:</span> @endif
+                                        {{ \Carbon\Carbon::parse($license->next_billing_date)->format('d M Y') }}
+                                        @if($isExpired)
+                                            <span style="font-size: 10px; margin-left: 4px;">(Vencida)</span>
+                                        @elseif($isExpiringToday)
+                                            <span style="font-size: 10px; margin-left: 4px;">(Vence hoy)</span>
+                                        @endif
+                                    </div>
+                                    {{-- Setup Date --}}
+                                    @if($hasSetup && $license->next_setup_billing_date)
+                                    <div style="font-size:13px; margin-top:4px; {{ $setupExpired || $setupExpiringToday ? 'color: var(--danger, #ff5252); font-weight: 600;' : 'color: var(--silver-light);' }}">
+                                        <span style="font-size:11px; opacity:0.8;">Anualidad:</span>
+                                        {{ \Carbon\Carbon::parse($license->next_setup_billing_date)->format('d M Y') }}
+                                        @if($setupExpired)
+                                            <span style="font-size: 10px; margin-left: 4px;">(Vencida)</span>
+                                        @elseif($setupExpiringToday)
+                                            <span style="font-size: 10px; margin-left: 4px;">(Vence hoy)</span>
+                                        @endif
+                                    </div>
                                     @endif
                                 </td>
                             @endif
@@ -163,6 +199,7 @@
                                             '{{ $license->setup_fee }}',
                                             '{{ $license->monthly_fee }}',
                                             '{{ $license->next_billing_date }}',
+                                            '{{ $license->next_setup_billing_date }}',
                                             {{ $license->is_free ? 'true' : 'false' }}
                                         )"
                                     >
@@ -299,22 +336,8 @@
                 </div>
             </div>
 
-            {{-- Three columns: Setup Fee + Monthly Fee + Next Billing Date --}}
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
-                <div class="form-group">
-                    <label for="create_setup_fee" class="form-label">Instalación ($)</label>
-                    <input
-                        type="number"
-                        name="setup_fee"
-                        id="create_setup_fee"
-                        class="form-input"
-                        placeholder="0.00"
-                        step="0.01"
-                        min="0"
-                        value="{{ old('setup_fee', 0) }}"
-                        required
-                    >
-                </div>
+            {{-- Four columns: Fees and Dates --}}
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                 <div class="form-group">
                     <label for="create_monthly_fee" class="form-label">Mensualidad ($)</label>
                     <input
@@ -330,7 +353,7 @@
                     >
                 </div>
                 <div class="form-group">
-                    <label for="create_next_billing_date" class="form-label">Próx. Factura</label>
+                    <label for="create_next_billing_date" class="form-label">Próx. Factura (Mes)</label>
                     <input
                         type="date"
                         name="next_billing_date"
@@ -338,6 +361,30 @@
                         class="form-input"
                         value="{{ old('next_billing_date') }}"
                         required
+                    >
+                </div>
+                <div class="form-group">
+                    <label for="create_setup_fee" class="form-label">Instalación ($)</label>
+                    <input
+                        type="number"
+                        name="setup_fee"
+                        id="create_setup_fee"
+                        class="form-input"
+                        placeholder="0.00"
+                        step="0.01"
+                        min="0"
+                        value="{{ old('setup_fee', 0) }}"
+                        required
+                    >
+                </div>
+                <div class="form-group">
+                    <label for="create_next_setup_billing_date" class="form-label">Próx. Anualidad</label>
+                    <input
+                        type="date"
+                        name="next_setup_billing_date"
+                        id="create_next_setup_billing_date"
+                        class="form-input"
+                        value="{{ old('next_setup_billing_date') }}"
                     >
                 </div>
             </div>
@@ -417,18 +464,22 @@
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
-                <div class="form-group">
-                    <label for="edit_setup_fee" class="form-label">Instalación ($)</label>
-                    <input type="number" name="setup_fee" id="edit_setup_fee" class="form-input" step="0.01" min="0" required>
-                </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                 <div class="form-group">
                     <label for="edit_monthly_fee" class="form-label">Mensualidad ($)</label>
                     <input type="number" name="monthly_fee" id="edit_monthly_fee" class="form-input" step="0.01" min="0" required>
                 </div>
                 <div class="form-group">
-                    <label for="edit_next_billing_date" class="form-label">Próx. Factura</label>
+                    <label for="edit_next_billing_date" class="form-label">Próx. Factura (Mes)</label>
                     <input type="date" name="next_billing_date" id="edit_next_billing_date" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit_setup_fee" class="form-label">Instalación ($)</label>
+                    <input type="number" name="setup_fee" id="edit_setup_fee" class="form-input" step="0.01" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit_next_setup_billing_date" class="form-label">Próx. Anualidad</label>
+                    <input type="date" name="next_setup_billing_date" id="edit_next_setup_billing_date" class="form-input">
                 </div>
             </div>
 
@@ -596,7 +647,7 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 // ── Global: open Edit Modal populated with license data ──────────
-function openEditLicenseModal(id, clientId, url, token, status, billingCycle, setupFee, monthlyFee, nextBillingDate, isFree) {
+function openEditLicenseModal(id, clientId, url, token, status, billingCycle, setupFee, monthlyFee, nextBillingDate, nextSetupBillingDate, isFree) {
     const modal    = document.getElementById('editLicenseModal');
     const form     = document.getElementById('editLicenseForm');
     const freeNote = document.getElementById('editFreeNote');
@@ -610,6 +661,7 @@ function openEditLicenseModal(id, clientId, url, token, status, billingCycle, se
     document.getElementById('edit_billing_cycle').value     = billingCycle;
     document.getElementById('edit_setup_fee').value         = setupFee;
     document.getElementById('edit_next_billing_date').value = nextBillingDate;
+    document.getElementById('edit_next_setup_billing_date').value = nextSetupBillingDate;
     feeInput.value                                          = monthlyFee;
 
     // Show free note & lock fee field if is_free
@@ -821,7 +873,11 @@ async function doSystemToggle(action) {
             </button>
             
             <button type="button" id="btnPaySetup" class="btn-primary-action" style="background:#ff9800; border-color:#f57c00; justify-content:center;">
-                <i class="bi bi-tools"></i> Pago de Instalación
+                <i class="bi bi-tools"></i> Pago de Instalación (Anual)
+            </button>
+            
+            <button type="button" id="btnPayTotal" class="btn-primary-action" style="background:var(--success); border-color:var(--success); justify-content:center; display:none;">
+                <i class="bi bi-cash-stack"></i> Pago Total (Ambos)
             </button>
         </div>
     </div>
@@ -995,7 +1051,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         if (currentLicenseForPayment?.url) {
-            const typeLabel = document.getElementById('lp_type').value === 'instalacion' ? 'Instalación' : 'Mensualidad';
+            let typeLabel = 'Mensualidad';
+            const currentType = document.getElementById('lp_type').value;
+            if (currentType === 'instalacion') typeLabel = 'Instalación (Anual)';
+            if (currentType === 'total') typeLabel = 'Pago Total (Ambos)';
+            
             paymentDesc.textContent = isCredit
                 ? `Aplicar pago de ${typeLabel} de ${currentLicenseForPayment.url} a un crédito del cliente`
                 : `Registrar pago de ${typeLabel} para ${currentLicenseForPayment.url}`;
@@ -1007,10 +1067,13 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('paymentSelectorUrl').textContent = license.url;
 
         const btnSetup = document.getElementById('btnPaySetup');
+        const btnTotal = document.getElementById('btnPayTotal');
         if (parseFloat(license.setup_fee) > 0) {
             btnSetup.style.display = 'flex';
+            btnTotal.style.display = 'flex';
         } else {
             btnSetup.style.display = 'none';
+            btnTotal.style.display = 'none';
         }
 
         modalSelector.classList.add('open');
@@ -1025,13 +1088,18 @@ document.addEventListener('DOMContentLoaded', function () {
         closeSelector();
         openRegisterLicensePaymentForm(currentLicenseForPayment, 'instalacion');
     });
+    
+    document.getElementById('btnPayTotal').addEventListener('click', function() {
+        closeSelector();
+        openRegisterLicensePaymentForm(currentLicenseForPayment, 'total');
+    });
 
     paymentTarget.addEventListener('change', syncPaymentTarget);
 
     function openRegisterLicensePaymentForm(license, type) {
         let amount = 0;
         if (type === 'instalacion') {
-            amount = license.setup_fee;
+            amount = parseFloat(license.setup_fee) || 0;
         } else {
             const fee = parseFloat(license.monthly_fee) || 0;
             switch (license.billing_cycle) {
@@ -1041,8 +1109,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 case 'mensual':
                 default: amount = fee; break;
             }
+            if (type === 'total') {
+                amount += parseFloat(license.setup_fee) || 0;
+            }
         }
-        const typeLabel = type === 'instalacion' ? 'Instalación' : 'Mensualidad';
+        
+        let typeLabel = 'Mensualidad';
+        if (type === 'instalacion') typeLabel = 'Instalación (Anual)';
+        if (type === 'total') typeLabel = 'Pago Total (Ambos)';
 
         currentLicenseForPayment = license;
         document.getElementById('lp_client_id').value = license.client_id;
