@@ -18,6 +18,8 @@ class LicenseController extends Controller
     {
         $search = $request->input('search');
 
+        $perPage = $request->input('per_page', 10);
+
         $licenses = License::with('client')
             ->when($search, function ($query, $search) {
                 return $query->where('url', 'like', "%{$search}%")
@@ -29,7 +31,7 @@ class LicenseController extends Controller
             ->orderBy('next_billing_date', 'asc')
             ->orderByDesc('created_at')
             ->orderByDesc('id')
-            ->paginate(10);
+            ->paginate($perPage)->appends($request->query());
 
         // Fetch all clients for the modal select dropdown
         $clients = Client::orderBy('name')->get();

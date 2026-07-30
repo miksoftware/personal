@@ -32,16 +32,30 @@
 
     {{-- Filter Bar --}}
     <div class="filter-bar">
-        <form action="{{ route('licenses.index') }}" method="GET" class="search-wrapper">
-            <i class="bi bi-search search-icon"></i>
-            <input
-                type="text"
-                name="search"
-                class="search-input"
-                placeholder="Buscar por URL o nombre de cliente..."
-                value="{{ $search }}"
-                autocomplete="off"
-            >
+        <form action="{{ route('licenses.index') }}" method="GET" class="search-wrapper" style="display:flex; gap:16px; background: transparent; border: none; padding: 0;">
+            <div style="position:relative; flex-grow:1; display:flex; align-items:center;">
+                <i class="bi bi-search search-icon" style="position:absolute; left:16px;"></i>
+                <input
+                    type="text"
+                    name="search"
+                    class="search-input"
+                    placeholder="Buscar por URL o nombre de cliente..."
+                    value="{{ $search }}"
+                    autocomplete="off"
+                    style="width: 100%;"
+                >
+            </div>
+            
+            <div style="display:flex; align-items:center; gap:8px; background:var(--surface-color); border:1px solid rgba(255, 255, 255, 0.08); border-radius:10px; padding:0 12px;">
+                <label for="per_page" style="color:var(--silver-light); font-size:13px; white-space:nowrap; font-weight:500;">Mostrar:</label>
+                <select name="per_page" id="per_page" onchange="this.form.submit()" style="background:transparent; border:none; color:var(--white); font-size:13px; outline:none; padding:8px 0; cursor:pointer;">
+                    <option value="10" {{ request('per_page') == 10 ? 'selected' : '' }} style="color: #000;">10</option>
+                    <option value="15" {{ request('per_page') == 15 ? 'selected' : '' }} style="color: #000;">15</option>
+                    <option value="30" {{ request('per_page') == 30 ? 'selected' : '' }} style="color: #000;">30</option>
+                    <option value="50" {{ request('per_page') == 50 ? 'selected' : '' }} style="color: #000;">50</option>
+                    <option value="100" {{ request('per_page') == 100 ? 'selected' : '' }} style="color: #000;">100</option>
+                </select>
+            </div>
         </form>
 
         <button class="btn-primary-action" id="btnOpenCreateModal">
