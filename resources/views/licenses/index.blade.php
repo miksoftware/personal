@@ -120,9 +120,24 @@
                             </td>
 
                             {{-- Next Billing Date --}}
-                            <td style="color: var(--silver-light); font-size:13px;">
-                                {{ \Carbon\Carbon::parse($license->next_billing_date)->format('d M Y') }}
-                            </td>
+                            @if($license->is_free)
+                                <td style="color: var(--silver-light); font-size:13px;">
+                                    <span style="opacity: 0.5;">N/A</span>
+                                </td>
+                            @else
+                                @php
+                                    $isExpired = \Carbon\Carbon::parse($license->next_billing_date)->startOfDay()->lt(\Carbon\Carbon::now()->startOfDay());
+                                    $isExpiringToday = \Carbon\Carbon::parse($license->next_billing_date)->isToday();
+                                @endphp
+                                <td style="font-size:13px; {{ $isExpired || $isExpiringToday ? 'color: var(--danger, #ff5252); font-weight: 600;' : 'color: var(--silver-light);' }}">
+                                    {{ \Carbon\Carbon::parse($license->next_billing_date)->format('d M Y') }}
+                                    @if($isExpired)
+                                        <span style="font-size: 10px; margin-left: 4px;">(Vencida)</span>
+                                    @elseif($isExpiringToday)
+                                        <span style="font-size: 10px; margin-left: 4px;">(Vence hoy)</span>
+                                    @endif
+                                </td>
+                            @endif
 
                             {{-- Actions --}}
                             <td style="text-align:center;">
@@ -1014,7 +1029,19 @@ document.addEventListener('DOMContentLoaded', function () {
     paymentTarget.addEventListener('change', syncPaymentTarget);
 
     function openRegisterLicensePaymentForm(license, type) {
-        const amount = type === 'instalacion' ? license.setup_fee : license.monthly_fee;
+        let amount = 0;
+        if (type === 'instalacion') {
+            amount = license.setup_fee;
+        } else {
+            const fee = parseFloat(license.monthly_fee) || 0;
+            switch (license.billing_cycle) {
+                case 'trimestral': amount = fee * 3; break;
+                case 'semestral': amount = fee * 6; break;
+                case 'anual': amount = fee * 12; break;
+                case 'mensual':
+                default: amount = fee; break;
+            }
+        }
         const typeLabel = type === 'instalacion' ? 'Instalación' : 'Mensualidad';
 
         currentLicenseForPayment = license;
@@ -1024,6 +1051,11 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('lp_amount').value = amount;
         document.getElementById('lp_notes').value = `Pago ${typeLabel} - ${license.url}`;
         paymentTarget.value = 'bank_account';
+        
+        if (bankAccountSelect.options.length > 1 && !bankAccountSelect.value) {
+            bankAccountSelect.selectedIndex = 1;
+        }
+
         renderCreditOptions(license.client_id);
         syncPaymentTarget();
 

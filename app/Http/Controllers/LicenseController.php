@@ -25,6 +25,8 @@ class LicenseController extends Controller
                         $q->where('name', 'like', "%{$search}%");
                     });
             })
+            ->orderBy('is_free', 'asc')
+            ->orderBy('next_billing_date', 'asc')
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->paginate(10);

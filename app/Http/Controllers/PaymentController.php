@@ -123,6 +123,10 @@ class PaymentController extends Controller
                 if ($credit->balance <= 0 && $credit->status === 'activo') {
                     $credit->update(['status' => 'pagado']);
                 }
+
+                if ($license && ($validated['license_payment_type'] ?? null) === 'mensualidad') {
+                    $this->advanceLicenseBillingDate($license);
+                }
             });
 
             return redirect($redirectRoute)
@@ -138,6 +142,13 @@ class PaymentController extends Controller
 
             Payment::create($validated);
             $account->increment('current_balance', $validated['amount']);
+
+            if (!empty($validated['license_id']) && ($validated['license_payment_type'] ?? null) === 'mensualidad') {
+                $license = License::find($validated['license_id']);
+                if ($license) {
+                    $this->advanceLicenseBillingDate($license);
+                }
+            }
         });
 
         return redirect($redirectRoute)
@@ -159,5 +170,28 @@ class PaymentController extends Controller
 
         return redirect()->route('payments.index')
             ->with('status', 'Pago eliminado y saldo actualizado.');
+    }
+
+    private function advanceLicenseBillingDate(License $license): void
+    {
+        $cycle = $license->billing_cycle;
+        $currentNextBillingDate = \Carbon\Carbon::parse($license->next_billing_date);
+        
+        switch ($cycle) {
+            case 'trimestral':
+                $license->next_billing_date = $currentNextBillingDate->addMonths(3);
+                break;
+            case 'semestral':
+                $license->next_billing_date = $currentNextBillingDate->addMonths(6);
+                break;
+            case 'anual':
+                $license->next_billing_date = $currentNextBillingDate->addYear();
+                break;
+            case 'mensual':
+            default:
+                $license->next_billing_date = $currentNextBillingDate->addMonth();
+                break;
+        }
+        $license->save();
     }
 }
