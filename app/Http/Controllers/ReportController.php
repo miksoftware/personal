@@ -16,13 +16,14 @@ class ReportController extends Controller
     {
         $clients = Client::withSum('developments', 'amount')
             ->withSum('payments', 'amount')
+            ->withSum('sales', 'total_amount')
             ->withSum(['loans as loans_given_sum' => fn($q) => $q->where('type', 'entregado')], 'amount')
             ->withSum(['loans as loans_received_sum' => fn($q) => $q->where('type', 'recibido')], 'amount')
-            ->withCount(['developments', 'payments'])
+            ->withCount(['developments', 'payments', 'sales'])
             ->orderBy('name')
             ->get()
             ->map(function ($client) {
-                $client->total_debt    = (float) ($client->developments_sum_amount ?? 0) + (float) ($client->loans_given_sum ?? 0);
+                $client->total_debt    = (float) ($client->developments_sum_amount ?? 0) + (float) ($client->loans_given_sum ?? 0) + (float) ($client->sales_sum_total_amount ?? 0);
                 $client->total_paid    = (float) ($client->payments_sum_amount ?? 0) + (float) ($client->loans_received_sum ?? 0);
                 $client->balance       = $client->total_debt - $client->total_paid;
                 $client->progress_pct  = $client->total_debt > 0
@@ -67,15 +68,16 @@ class ReportController extends Controller
     private function getReportData(Client $client): array
     {
         $developments = $client->developments()->orderBy('created_at', 'asc')->get();
-        $payments     = $client->payments()->with('development')->orderBy('payment_date', 'asc')->get();
+        $payments     = $client->payments()->with(['development', 'sale'])->orderBy('payment_date', 'asc')->get();
         $loans        = \App\Models\Loan::where('client_id', $client->id)->orderBy('loan_date', 'asc')->get();
+        $sales        = \App\Models\Sale::where('client_id', $client->id)->orderBy('sale_date', 'desc')->get();
         $credits      = \App\Models\Credit::where('client_id', $client->id)
             ->with(['payments' => fn($q) => $q->orderBy('payment_date', 'desc')])
             ->withSum('payments', 'amount')
             ->orderBy('credit_date', 'asc')
             ->get();
 
-        $totalDebt   = (float) $developments->sum('amount') + (float) $loans->where('type', 'entregado')->sum('amount');
+        $totalDebt   = (float) $developments->sum('amount') + (float) $loans->where('type', 'entregado')->sum('amount') + (float) $sales->sum('total_amount');
         $totalPaid   = (float) $payments->sum('amount') + (float) $loans->where('type', 'recibido')->sum('amount');
         $balance     = $totalDebt - $totalPaid;
         $progressPct = $totalDebt > 0 ? min(100, round(($totalPaid / $totalDebt) * 100, 1)) : 0;
@@ -127,6 +129,7 @@ class ReportController extends Controller
             'developments' => $developments->sortByDesc('created_at'),
             'payments' => $payments->sortByDesc('payment_date'),
             'loans' => $loans->sortByDesc('loan_date'),
+            'sales' => $sales,
             'credits' => $credits->sortByDesc('credit_date'),
             'totalDebt' => $totalDebt,
             'totalPaid' => $totalPaid,

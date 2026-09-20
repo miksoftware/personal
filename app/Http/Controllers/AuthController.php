@@ -83,11 +83,20 @@ class AuthController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
+            'role' => 'user',
         ]);
 
         Auth::login($user);
 
-        return redirect('/dashboard')->with('status', '¡Tu cuenta ha sido creada exitosamente!');
+        // Aprovisionar cuenta bancaria inicial por defecto para que el nuevo usuario pueda operar de inmediato
+        $user->bankAccounts()->create([
+            'name' => 'Efectivo / Caja Principal',
+            'account_number' => 'EFECTIVO-01',
+            'current_balance' => 0.00,
+            'is_active' => true,
+        ]);
+
+        return redirect('/dashboard')->with('status', '¡Tu cuenta ha sido creada exitosamente! Hemos preparado tu espacio personal con tu primera cuenta de efectivo.');
     }
 
     /**

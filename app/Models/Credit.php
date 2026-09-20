@@ -2,14 +2,17 @@
 
 namespace App\Models;
 
+use App\Models\Traits\BelongsToUser;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 
-#[Fillable(['client_id', 'type', 'creditor_name', 'description', 'total_amount', 'installment_value', 'total_installments', 'status', 'credit_date', 'notes'])]
+#[Fillable(['user_id', 'client_id', 'type', 'creditor_name', 'description', 'total_amount', 'installment_value', 'total_installments', 'status', 'credit_date', 'notes'])]
 class Credit extends Model
 {
+    use BelongsToUser;
+
     public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class);

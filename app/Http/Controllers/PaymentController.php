@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use App\Models\License;
+use App\Models\Sale;
+use Illuminate\Support\Facades\Auth;
 
 class PaymentController extends Controller
 {
@@ -22,10 +24,11 @@ class PaymentController extends Controller
     {
         $search = $request->input('search', '');
 
-        $payments = Payment::with(['client', 'development', 'bankAccount'])
+        $payments = Payment::with(['client', 'development', 'bankAccount', 'sale'])
             ->when($search, function ($query) use ($search) {
                 $query->whereHas('client', fn($q) => $q->where('name', 'like', "%{$search}%"))
                     ->orWhereHas('development', fn($q) => $q->where('title', 'like', "%{$search}%"))
+                    ->orWhereHas('sale', fn($q) => $q->where('item_name', 'like', "%{$search}%"))
                     ->orWhere('reference', 'like', "%{$search}%");
             })
             ->orderBy('payment_date', 'desc')
@@ -35,27 +38,31 @@ class PaymentController extends Controller
         $clients      = Client::orderBy('name')->get();
         $developments = Development::with('client')->orderBy('title')->get();
         $bankAccounts = BankAccount::where('is_active', true)->orderBy('name')->get();
+        $sales        = Sale::where('status', 'pendiente')->with('client')->orderBy('item_name')->get();
 
-        return view('payments.index', compact('payments', 'clients', 'developments', 'bankAccounts', 'search'));
+        return view('payments.index', compact('payments', 'clients', 'developments', 'bankAccounts', 'sales', 'search'));
     }
 
     public function store(Request $request): RedirectResponse
     {
+        $userId = Auth::id();
+
         $validated = $request->validate([
-            'client_id'            => ['required', 'exists:clients,id'],
+            'client_id'            => ['required', Rule::exists('clients', 'id')->where('user_id', $userId)],
             'payment_target'       => ['nullable', 'string', 'in:bank_account,credit'],
             'bank_account_id'      => [
                 Rule::requiredIf(fn () => $request->input('payment_target', 'bank_account') === 'bank_account'),
                 'nullable',
-                'exists:bank_accounts,id',
+                Rule::exists('bank_accounts', 'id')->where('user_id', $userId),
             ],
             'credit_id'            => [
                 Rule::requiredIf(fn () => $request->input('payment_target') === 'credit'),
                 'nullable',
-                'exists:credits,id',
+                Rule::exists('credits', 'id')->where('user_id', $userId),
             ],
-            'development_id'       => ['nullable', 'exists:developments,id'],
-            'license_id'           => ['nullable', 'exists:licenses,id'],
+            'development_id'       => ['nullable', Rule::exists('developments', 'id')->where('user_id', $userId)],
+            'license_id'           => ['nullable', Rule::exists('licenses', 'id')->where('user_id', $userId)],
+            'sale_id'              => ['nullable', Rule::exists('sales', 'id')->where('user_id', $userId)],
             'license_payment_type' => ['nullable', 'string', 'in:mensualidad,instalacion,total'],
             'amount'               => ['required', 'numeric', 'min:0.01'],
             'method'               => ['required', 'string'],
@@ -163,6 +170,18 @@ class PaymentController extends Controller
                             $license->save();
                         }
                     }
+                }
+            }
+
+            if (!empty($validated['sale_id'])) {
+                $sale = Sale::find($validated['sale_id']);
+                if ($sale) {
+                    $sale->update([
+                        'status'          => 'pagado',
+                        'paid_at'         => now(),
+                        'bank_account_id' => $validated['bank_account_id'] ?? $sale->bank_account_id,
+                        'payment_method'  => $validated['method'],
+                    ]);
                 }
             }
         });

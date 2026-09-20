@@ -8,6 +8,8 @@ use App\Models\CreditPayment;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class CreditController extends Controller
 {
@@ -140,7 +142,7 @@ class CreditController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'client_id'          => ['nullable', 'exists:clients,id'],
+            'client_id'          => ['nullable', Rule::exists('clients', 'id')->where('user_id', Auth::id())],
             'type'               => ['required', 'in:proveedor,personal'],
             'creditor_name'      => ['required', 'string', 'max:255'],
             'description'        => ['required', 'string', 'max:255'],
@@ -170,7 +172,7 @@ class CreditController extends Controller
     public function update(Request $request, Credit $credit): RedirectResponse
     {
         $validated = $request->validate([
-            'client_id'          => ['nullable', 'exists:clients,id'],
+            'client_id'          => ['nullable', Rule::exists('clients', 'id')->where('user_id', Auth::id())],
             'type'               => ['required', 'in:proveedor,personal'],
             'creditor_name'      => ['required', 'string', 'max:255'],
             'description'        => ['required', 'string', 'max:255'],
@@ -244,6 +246,8 @@ class CreditController extends Controller
      */
     public function destroyPayment(Credit $credit, CreditPayment $creditPayment): RedirectResponse
     {
+        abort_if($creditPayment->credit_id !== $credit->id, 404);
+
         $creditPayment->delete();
 
         // Re-check status: if credit was "pagado" but now has balance, set back to "activo"

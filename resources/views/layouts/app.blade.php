@@ -82,7 +82,7 @@
 
                 <!-- Ventas (Collapsible Dropdown) -->
                 @php
-                    $ventasOpen = Route::is('licenses.*') || Route::is('developments.*');
+                    $ventasOpen = Route::is('licenses.*') || Route::is('developments.*') || Route::is('sales.*');
                 @endphp
                 <li class="sidebar-dropdown-item">
                     <button 
@@ -114,6 +114,14 @@
                                 class="sidebar-submenu-link {{ Route::is('developments.*') ? 'active' : '' }}"
                             >
                                 <span>Desarrollos a Medida</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-submenu-item">
+                            <a 
+                                href="{{ route('sales.index') }}" 
+                                class="sidebar-submenu-link {{ Route::is('sales.*') ? 'active' : '' }}"
+                            >
+                                <span>Equipos y Otros</span>
                             </a>
                         </li>
                     </ul>
@@ -170,13 +178,15 @@
                     </ul>
                 </li>
 
-                <!-- Importar Base de Datos -->
+                <!-- Importar Base de Datos (Solo Administrador) -->
+                @if(Auth::user()->isAdmin())
                 <li class="sidebar-menu-item">
                     <a href="{{ route('db-import.index') }}" class="sidebar-menu-link {{ Route::is('db-import.*') ? 'active' : '' }}">
                         <i class="bi bi-database-up"></i>
                         <span>Importar BD</span>
                     </a>
                 </li>
+                @endif
 
             </ul>
 
@@ -189,7 +199,7 @@
                     </div>
                     <div class="profile-details">
                         <div class="profile-name">{{ Auth::user()->name }}</div>
-                        <div class="profile-role">Administrador</div>
+                        <div class="profile-role">{{ Auth::user()->isAdmin() ? 'Administrador' : 'Usuario' }}</div>
                     </div>
                 </div>
 

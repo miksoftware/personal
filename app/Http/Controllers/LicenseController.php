@@ -8,6 +8,8 @@ use App\Models\Client;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class LicenseController extends Controller
 {
@@ -60,7 +62,7 @@ class LicenseController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'client_id' => ['required', 'exists:clients,id'],
+            'client_id' => ['required', Rule::exists('clients', 'id')->where('user_id', Auth::id())],
             'url' => ['required', 'string', 'max:255'],
             'block_token' => ['required', 'string', 'max:255'],
             'status' => ['required', 'string', 'in:activa,suspendida,vencida'],
@@ -115,7 +117,7 @@ class LicenseController extends Controller
     public function update(Request $request, License $license)
     {
         $validated = $request->validate([
-            'client_id' => ['required', 'exists:clients,id'],
+            'client_id' => ['required', Rule::exists('clients', 'id')->where('user_id', Auth::id())],
             'url' => ['required', 'string', 'max:255'],
             'block_token' => ['required', 'string', 'max:255'],
             'status' => ['required', 'string', 'in:activa,suspendida,vencida'],

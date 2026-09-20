@@ -7,6 +7,8 @@ use App\Models\Client;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class LoanController extends Controller
 {
@@ -38,7 +40,7 @@ class LoanController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'client_id'   => ['required', 'exists:clients,id'],
+            'client_id'   => ['required', Rule::exists('clients', 'id')->where('user_id', Auth::id())],
             'type'        => ['required', 'in:recibido,entregado'],
             'description' => ['required', 'string', 'max:255'],
             'amount'      => ['required', 'numeric', 'min:0'],
@@ -63,7 +65,7 @@ class LoanController extends Controller
     public function update(Request $request, Loan $loan): RedirectResponse
     {
         $validated = $request->validate([
-            'client_id'   => ['required', 'exists:clients,id'],
+            'client_id'   => ['required', Rule::exists('clients', 'id')->where('user_id', Auth::id())],
             'type'        => ['required', 'in:recibido,entregado'],
             'description' => ['required', 'string', 'max:255'],
             'amount'      => ['required', 'numeric', 'min:0'],

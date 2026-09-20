@@ -2,13 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Traits\BelongsToUser;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 
-#[Fillable(['client_id', 'bank_account_id', 'development_id', 'license_id', 'license_payment_type', 'amount', 'method', 'payment_date', 'reference', 'notes'])]
+#[Fillable(['user_id', 'client_id', 'bank_account_id', 'development_id', 'license_id', 'sale_id', 'license_payment_type', 'amount', 'method', 'payment_date', 'reference', 'notes'])]
 class Payment extends Model
 {
+    use BelongsToUser;
+
     public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class);
@@ -27,6 +30,11 @@ class Payment extends Model
     public function license(): BelongsTo
     {
         return $this->belongsTo(License::class);
+    }
+
+    public function sale(): BelongsTo
+    {
+        return $this->belongsTo(Sale::class);
     }
 
     public function getMethodLabelAttribute(): string
@@ -49,6 +57,10 @@ class Payment extends Model
         if ($this->license) {
             $type = $this->license_payment_type === 'instalacion' ? 'Instalación' : 'Mensualidad';
             return "Licencia: {$this->license->url} ({$type})";
+        }
+
+        if ($this->sale) {
+            return "Venta: {$this->sale->item_name}";
         }
 
         return 'Cuenta Global';

@@ -2,18 +2,21 @@
 
 namespace App\Models;
 
+use App\Models\Traits\BelongsToUser;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 
 #[Fillable([
-    'parent_id', 'client_id', 'license_id', 'type',
+    'user_id', 'parent_id', 'client_id', 'license_id', 'type',
     'title', 'description', 'amount', 'monthly_fee', 'contract_months', 'billing_cycle',
     'status', 'delivered_at', 'paid_at', 'started_at', 'estimated_end_at',
 ])]
 class Development extends Model
 {
+    use BelongsToUser;
+
     public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class);

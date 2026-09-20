@@ -8,6 +8,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class ExpenseController extends Controller
 {
@@ -44,7 +46,7 @@ class ExpenseController extends Controller
             'description'     => ['required', 'string', 'max:255'],
             'category'        => ['nullable', 'string', 'max:255'],
             'amount'          => ['required', 'numeric', 'min:0.01'],
-            'bank_account_id' => ['required', 'exists:bank_accounts,id'],
+            'bank_account_id' => ['required', Rule::exists('bank_accounts', 'id')->where('user_id', Auth::id())],
             'expense_date'    => ['required', 'date'],
             'reference'       => ['nullable', 'string', 'max:255'],
             'notes'           => ['nullable', 'string'],
@@ -77,7 +79,7 @@ class ExpenseController extends Controller
             'description'     => ['required', 'string', 'max:255'],
             'category'        => ['nullable', 'string', 'max:255'],
             'amount'          => ['required', 'numeric', 'min:0.01'],
-            'bank_account_id' => ['required', 'exists:bank_accounts,id'],
+            'bank_account_id' => ['required', Rule::exists('bank_accounts', 'id')->where('user_id', Auth::id())],
             'expense_date'    => ['required', 'date'],
             'reference'       => ['nullable', 'string', 'max:255'],
             'notes'           => ['nullable', 'string'],

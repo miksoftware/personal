@@ -13,6 +13,8 @@ use App\Http\Controllers\BankAccountController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\DatabaseImportController;
 use App\Http\Controllers\IncomeController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\SaleController;
 use Illuminate\Support\Facades\Auth;
 
 // Redirect root URL
@@ -34,9 +36,7 @@ Route::middleware('guest')->group(function () {
 
 // Authenticated Routes (Only accessible if logged in)
 Route::middleware('auth')->group(function () {
-    Route::get('/dashboard', function () {
-        return view('dashboard');
-    })->name('dashboard');
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Clients CRUD resource routes protected by auth
     Route::resource('clients', ClientController::class)->except(['create', 'edit', 'show']);
@@ -50,6 +50,10 @@ Route::middleware('auth')->group(function () {
 
     // Developments CRUD resource routes protected by auth
     Route::resource('developments', DevelopmentController::class)->except(['create', 'edit', 'show']);
+
+    // Sales (Equipos y Otros) CRUD resource routes protected by auth
+    Route::resource('sales', SaleController::class)->except(['create', 'edit', 'show']);
+    Route::post('/sales/{sale}/pay', [SaleController::class, 'markAsPaid'])->name('sales.pay');
 
     // Payments CRUD
     Route::resource('payments', PaymentController::class)->only(['index', 'store', 'destroy']);

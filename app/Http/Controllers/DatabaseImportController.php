@@ -20,6 +20,8 @@ class DatabaseImportController extends Controller
 
     public function index()
     {
+        abort_unless(auth()->user()?->isAdmin(), 403, 'Acceso denegado. Solo administradores pueden importar bases de datos.');
+
         return view('db-import.index', [
             'allowedTables' => self::ALLOWED_TABLES,
         ]);
@@ -27,6 +29,8 @@ class DatabaseImportController extends Controller
 
     public function import(Request $request)
     {
+        abort_unless(auth()->user()?->isAdmin(), 403, 'Acceso denegado. Solo administradores pueden importar bases de datos.');
+
         $request->validate([
             'sql_file' => ['required', 'file', 'mimetypes:application/sql,application/octet-stream,text/plain,text/x-sql', 'max:51200'],
         ], [

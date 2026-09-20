@@ -6,6 +6,8 @@ use App\Models\Development;
 use App\Models\Client;
 use App\Models\License;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class DevelopmentController extends Controller
 {
@@ -69,8 +71,8 @@ class DevelopmentController extends Controller
         if ($type === 'soporte') {
             $validated = $request->validate([
                 'type'             => ['required', 'in:mejora,proyecto,soporte'],
-                'client_id'        => ['required', 'exists:clients,id'],
-                'parent_id'        => ['nullable', 'exists:developments,id'],
+                'client_id'        => ['required', Rule::exists('clients', 'id')->where('user_id', Auth::id())],
+                'parent_id'        => ['nullable', Rule::exists('developments', 'id')->where('user_id', Auth::id())],
                 'title'            => ['required', 'string', 'max:255'],
                 'description'      => ['nullable', 'string'],
                 'monthly_fee'      => ['required', 'numeric', 'min:0'],
@@ -92,9 +94,9 @@ class DevelopmentController extends Controller
 
         $validated = $request->validate([
             'type'             => ['required', 'in:mejora,proyecto,soporte'],
-            'client_id'        => ['required', 'exists:clients,id'],
-            'parent_id'        => ['nullable', 'exists:developments,id'],
-            'license_id'       => ['nullable', 'exists:licenses,id'],
+            'client_id'        => ['required', Rule::exists('clients', 'id')->where('user_id', Auth::id())],
+            'parent_id'        => ['nullable', Rule::exists('developments', 'id')->where('user_id', Auth::id())],
+            'license_id'       => ['nullable', Rule::exists('licenses', 'id')->where('user_id', Auth::id())],
             'title'            => ['required', 'string', 'max:255'],
             'description'      => ['nullable', 'string'],
             'amount'           => ['required', 'numeric', 'min:0'],
@@ -129,8 +131,8 @@ class DevelopmentController extends Controller
         if ($type === 'soporte') {
             $validated = $request->validate([
                 'type'             => ['required', 'in:mejora,proyecto,soporte'],
-                'client_id'        => ['required', 'exists:clients,id'],
-                'parent_id'        => ['nullable', 'exists:developments,id'],
+                'client_id'        => ['required', Rule::exists('clients', 'id')->where('user_id', Auth::id())],
+                'parent_id'        => ['nullable', Rule::exists('developments', 'id')->where('user_id', Auth::id())],
                 'title'            => ['required', 'string', 'max:255'],
                 'description'      => ['nullable', 'string'],
                 'monthly_fee'      => ['required', 'numeric', 'min:0'],
@@ -152,9 +154,9 @@ class DevelopmentController extends Controller
 
         $validated = $request->validate([
             'type'             => ['required', 'in:mejora,proyecto,soporte'],
-            'client_id'        => ['required', 'exists:clients,id'],
-            'parent_id'        => ['nullable', 'exists:developments,id'],
-            'license_id'       => ['nullable', 'exists:licenses,id'],
+            'client_id'        => ['required', Rule::exists('clients', 'id')->where('user_id', Auth::id())],
+            'parent_id'        => ['nullable', Rule::exists('developments', 'id')->where('user_id', Auth::id())],
+            'license_id'       => ['nullable', Rule::exists('licenses', 'id')->where('user_id', Auth::id())],
             'title'            => ['required', 'string', 'max:255'],
             'description'      => ['nullable', 'string'],
             'amount'           => ['required', 'numeric', 'min:0'],
