@@ -38,6 +38,17 @@ class AuthController extends Controller
         $remember = $request->boolean('remember');
 
         if (Auth::attempt($credentials, $remember)) {
+            $user = Auth::user();
+            if (!$user->isActive()) {
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                return back()->withErrors([
+                    'email' => 'Tu acceso ha sido cancelado o suspendido. Por favor, comunícate con el administrador (softwaremik@gmail.com) para reactivar tu cuenta.',
+                ])->onlyInput('email');
+            }
+
             $request->session()->regenerate();
 
             return redirect()->intended('/dashboard')

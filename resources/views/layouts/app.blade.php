@@ -178,6 +178,16 @@
                     </ul>
                 </li>
 
+                <!-- Gestión SaaS (Solo Superadministrador) -->
+                @if(Auth::user()->isSuperAdmin())
+                <li class="sidebar-menu-item">
+                    <a href="{{ route('admin.users.index') }}" class="sidebar-menu-link {{ Route::is('admin.users.*') ? 'active' : '' }}">
+                        <i class="bi bi-people-gear"></i>
+                        <span>Gestión de Usuarios</span>
+                    </a>
+                </li>
+                @endif
+
                 <!-- Importar Base de Datos (Solo Administrador) -->
                 @if(Auth::user()->isAdmin())
                 <li class="sidebar-menu-item">

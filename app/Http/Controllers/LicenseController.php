@@ -57,25 +57,39 @@ class LicenseController extends Controller
     }
 
     /**
+     * Helper to get remote admin token with fallback.
+     */
+    private function getRemoteToken(License $license): string
+    {
+        return !empty($license->block_token) ? $license->block_token : 'adminmikpos123';
+    }
+
+    /**
      * Store a newly created resource in storage.
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
+        $isSuperAdmin = Auth::user()?->isSuperAdmin();
+
+        $rules = [
             'client_id' => ['required', Rule::exists('clients', 'id')->where('user_id', Auth::id())],
             'url' => ['required', 'string', 'max:255'],
-            'block_token' => ['required', 'string', 'max:255'],
             'status' => ['required', 'string', 'in:activa,suspendida,vencida'],
             'billing_cycle' => ['required', 'string', 'in:mensual,trimestral,semestral,anual'],
             'monthly_fee' => ['required', 'numeric', 'min:0'],
             'setup_fee' => ['required', 'numeric', 'min:0'],
             'next_billing_date' => ['required', 'date'],
             'next_setup_billing_date' => ['nullable', 'date'],
-        ], [
+        ];
+
+        if ($isSuperAdmin) {
+            $rules['block_token'] = ['nullable', 'string', 'max:255'];
+        }
+
+        $validated = $request->validate($rules, [
             'client_id.required' => 'El cliente es obligatorio.',
             'client_id.exists' => 'El cliente seleccionado no es válido.',
             'url.required' => 'La URL es obligatoria.',
-            'block_token.required' => 'El token para bloqueo es obligatorio.',
             'status.required' => 'El estado es obligatorio.',
             'status.in' => 'El estado no es válido.',
             'billing_cycle.required' => 'El ciclo de facturación es obligatorio.',
@@ -87,6 +101,12 @@ class LicenseController extends Controller
             'next_billing_date.required' => 'La fecha de próxima facturación es obligatoria.',
             'next_setup_billing_date.date' => 'La fecha de próxima facturación anual no es válida.',
         ]);
+
+        if ($isSuperAdmin) {
+            $validated['block_token'] = $request->filled('block_token') ? $request->input('block_token') : 'adminmikpos123';
+        } else {
+            $validated['block_token'] = null;
+        }
 
         // Apply Business Rule: Every 5th license per client is automatically Free
         // (5th, 10th, 15th, 20th... i.e., when the new count is a multiple of 5)
@@ -116,21 +136,27 @@ class LicenseController extends Controller
      */
     public function update(Request $request, License $license)
     {
-        $validated = $request->validate([
+        $isSuperAdmin = Auth::user()?->isSuperAdmin();
+
+        $rules = [
             'client_id' => ['required', Rule::exists('clients', 'id')->where('user_id', Auth::id())],
             'url' => ['required', 'string', 'max:255'],
-            'block_token' => ['required', 'string', 'max:255'],
             'status' => ['required', 'string', 'in:activa,suspendida,vencida'],
             'billing_cycle' => ['required', 'string', 'in:mensual,trimestral,semestral,anual'],
             'monthly_fee' => ['required', 'numeric', 'min:0'],
             'setup_fee' => ['required', 'numeric', 'min:0'],
             'next_billing_date' => ['required', 'date'],
             'next_setup_billing_date' => ['nullable', 'date'],
-        ], [
+        ];
+
+        if ($isSuperAdmin) {
+            $rules['block_token'] = ['nullable', 'string', 'max:255'];
+        }
+
+        $validated = $request->validate($rules, [
             'client_id.required' => 'El cliente es obligatorio.',
             'client_id.exists' => 'El cliente seleccionado no es válido.',
             'url.required' => 'La URL es obligatoria.',
-            'block_token.required' => 'El token para bloqueo es obligatorio.',
             'status.required' => 'El estado es obligatorio.',
             'status.in' => 'El estado no es válido.',
             'billing_cycle.required' => 'El ciclo de facturación es obligatorio.',
@@ -143,10 +169,14 @@ class LicenseController extends Controller
             'next_setup_billing_date.date' => 'La fecha de próxima facturación anual no es válida.',
         ]);
 
+        if ($isSuperAdmin) {
+            $validated['block_token'] = $request->input('block_token');
+        } else {
+            unset($validated['block_token']);
+        }
+
         // If the client changed, recalculate the free status for the new client.
-        // The free rule applies to every multiple-of-5 position (5th, 10th, 15th...)
         if ($license->client_id != $validated['client_id']) {
-            // Count existing licenses for the NEW client (excluding current license since it's moving)
             $newClientCount = License::where('client_id', $validated['client_id'])->count();
             $newPosition = $newClientCount + 1;
             $license->is_free = ($newPosition % 5 === 0);
@@ -154,9 +184,8 @@ class LicenseController extends Controller
                 $validated['monthly_fee'] = 0.00;
             }
         } else {
-            // Same client: if the license was automatically marked free, keep it free.
             if ($license->is_free) {
-                $validated['monthly_fee'] = 0.00; // Always enforce $0.00 for free licenses
+                $validated['monthly_fee'] = 0.00;
             }
         }
 
@@ -179,20 +208,25 @@ class LicenseController extends Controller
 
     /**
      * Proxy: Get the remote system status via the license's block_token.
+     * Exclusivo para Superadministrador (softwaremik).
      */
     public function systemStatus(License $license): JsonResponse
     {
-        if (empty($license->block_token)) {
-            return response()->json(['success' => false, 'message' => 'Esta licencia no tiene token de bloqueo configurado.'], 422);
-        }
+        abort_unless(Auth::user()?->isSuperAdmin(), 403, 'Acceso denegado. Solo el Superadministrador puede consultar el estado remoto.');
+
+        $token = $this->getRemoteToken($license);
 
         try {
-            $response = Http::timeout(8)->get(rtrim($license->url, '/') . '/api/system/status', [
-                'token' => $license->block_token,
-            ]);
+            $response = Http::timeout(8)
+                ->withHeaders([
+                    'Accept' => 'application/json',
+                    'X-System-Token' => $token,
+                    'Authorization' => 'Bearer ' . $token,
+                ])
+                ->get(rtrim($license->url, '/') . '/api/system/status', [
+                    'token' => $token,
+                ]);
 
-            // Pass the remote HTTP status through so the JS can differentiate
-            // 200 (ok), 401 (wrong token), etc.
             $body = $response->json() ?? ['success' => false, 'message' => 'Respuesta no válida del sistema remoto.'];
             return response()->json($body, $response->status());
         } catch (\Exception $e) {
@@ -202,31 +236,107 @@ class LicenseController extends Controller
 
     /**
      * Proxy: Toggle (enable/disable) the remote system via the license's block_token.
+     * Exclusivo para Superadministrador (softwaremik).
      */
     public function systemToggle(Request $request, License $license): JsonResponse
     {
-        if (empty($license->block_token)) {
-            return response()->json(['success' => false, 'message' => 'Esta licencia no tiene token de bloqueo configurado.'], 422);
-        }
+        abort_unless(Auth::user()?->isSuperAdmin(), 403, 'Acceso denegado. Solo el Superadministrador puede controlar el estado del sistema.');
 
         $validated = $request->validate([
             'action' => ['nullable', 'string', 'in:enable,disable'],
         ]);
 
+        $token = $this->getRemoteToken($license);
+
         try {
-            $payload = ['token' => $license->block_token];
+            $payload = ['token' => $token];
             if (!empty($validated['action'])) {
                 $payload['action'] = $validated['action'];
             }
 
             $response = Http::timeout(8)
-                ->withHeaders(['Accept' => 'application/json'])
+                ->withHeaders([
+                    'Accept' => 'application/json',
+                    'X-System-Token' => $token,
+                    'Authorization' => 'Bearer ' . $token,
+                ])
                 ->post(rtrim($license->url, '/') . '/api/system/toggle', $payload);
 
             $toggleBody = $response->json() ?? ['success' => false, 'message' => 'Respuesta no válida del sistema remoto.'];
             return response()->json($toggleBody, $response->status());
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => 'No se pudo conectar con el sistema remoto. Verifica que la URL sea accesible.'], 503);
+        }
+    }
+
+    /**
+     * Proxy: Get remote system modules.
+     * Exclusivo para Superadministrador (softwaremik).
+     */
+    public function systemModules(License $license): JsonResponse
+    {
+        abort_unless(Auth::user()?->isSuperAdmin(), 403, 'Acceso denegado. Solo el Superadministrador puede consultar los módulos remotos.');
+
+        $token = $this->getRemoteToken($license);
+
+        try {
+            $response = Http::timeout(8)
+                ->withHeaders([
+                    'Accept' => 'application/json',
+                    'X-System-Token' => $token,
+                    'Authorization' => 'Bearer ' . $token,
+                ])
+                ->get(rtrim($license->url, '/') . '/api/system/modules', [
+                    'token' => $token,
+                ]);
+
+            $body = $response->json() ?? ['success' => false, 'message' => 'Respuesta no válida del sistema remoto.'];
+            return response()->json($body, $response->status());
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'No se pudo conectar con el sistema remoto para consultar los módulos.'], 503);
+        }
+    }
+
+    /**
+     * Proxy: Toggle a remote system module (e.g. accounting).
+     * Exclusivo para Superadministrador (softwaremik).
+     */
+    public function systemModuleToggle(Request $request, License $license): JsonResponse
+    {
+        abort_unless(Auth::user()?->isSuperAdmin(), 403, 'Acceso denegado. Solo el Superadministrador puede activar o desactivar módulos.');
+
+        $validated = $request->validate([
+            'module' => ['required', 'string'],
+            'action' => ['nullable', 'string', 'in:enable,disable'],
+            'enabled' => ['nullable', 'boolean'],
+        ]);
+
+        $token = $this->getRemoteToken($license);
+
+        try {
+            $payload = [
+                'token'  => $token,
+                'module' => $validated['module'],
+            ];
+            if (isset($validated['action'])) {
+                $payload['action'] = $validated['action'];
+            }
+            if (isset($validated['enabled'])) {
+                $payload['enabled'] = $validated['enabled'];
+            }
+
+            $response = Http::timeout(8)
+                ->withHeaders([
+                    'Accept' => 'application/json',
+                    'X-System-Token' => $token,
+                    'Authorization' => 'Bearer ' . $token,
+                ])
+                ->post(rtrim($license->url, '/') . '/api/system/modules/toggle', $payload);
+
+            $body = $response->json() ?? ['success' => false, 'message' => 'Respuesta no válida del sistema remoto.'];
+            return response()->json($body, $response->status());
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'No se pudo conectar con el sistema remoto para actualizar el módulo.'], 503);
         }
     }
 }

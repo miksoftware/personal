@@ -20,7 +20,7 @@
     </script>
 @endif
 
-@if($errors->any())
+@if(isset($errors) && $errors->any())
     <div class="alert-banner" id="license-error-alert" style="margin-bottom: 25px;">
         <i class="bi bi-exclamation-triangle-fill"></i>
         <span>{{ $errors->first() }}</span>
@@ -72,7 +72,9 @@
                     <tr>
                         <th>Cliente</th>
                         <th>URL del Sitio</th>
+                        @if(Auth::user()->isSuperAdmin())
                         <th>Token Bloqueo</th>
+                        @endif
                         <th>Estado</th>
                         <th>Ciclo</th>
                         <th>Instalación</th>
@@ -94,10 +96,12 @@
                                 <span class="license-url" title="{{ $license->url }}">{{ $license->url }}</span>
                             </td>
 
-                            {{-- Token --}}
+                            {{-- Token (Solo Superadministrador) --}}
+                            @if(Auth::user()->isSuperAdmin())
                             <td>
-                                <span class="license-token" title="{{ $license->block_token }}">{{ $license->block_token }}</span>
+                                <span class="license-token" title="{{ $license->block_token }}">{{ $license->block_token ?: 'adminmikpos123 (Por defecto)' }}</span>
                             </td>
+                            @endif
 
                             {{-- Status Badge --}}
                             <td>
@@ -219,11 +223,11 @@
                                     >
                                         <i class="bi bi-pencil-fill"></i>
                                     </button>
-                                    @if($license->block_token)
+                                    @if(Auth::user()->isSuperAdmin())
                                     <button
                                         type="button"
                                         class="btn-action power"
-                                        title="Control Remoto del Sistema"
+                                        title="Control Remoto de Sistema y Módulos"
                                         onclick="openSystemControlModal('{{ $license->id }}', '{{ addslashes($license->url) }}')"
                                     >
                                         <i class="bi bi-power"></i>
@@ -315,19 +319,23 @@
                 >
             </div>
 
-            {{-- Block Token --}}
+            {{-- Block Token (Solo Superadministrador) --}}
+            @if(Auth::user()->isSuperAdmin())
             <div class="form-group">
-                <label for="create_block_token" class="form-label">Token para Bloqueo</label>
+                <label for="create_block_token" class="form-label">
+                    Token para Bloqueo y Módulos (API)
+                    <span style="font-size: 11px; color: var(--salmon); font-weight: normal; margin-left: 6px;">(Maestro por defecto: adminmikpos123)</span>
+                </label>
                 <input
                     type="text"
                     name="block_token"
                     id="create_block_token"
                     class="form-input"
-                    placeholder="Ej. ABC123XYZ789"
-                    value="{{ old('block_token') }}"
-                    required
+                    placeholder="adminmikpos123"
+                    value="{{ old('block_token', 'adminmikpos123') }}"
                 >
             </div>
+            @endif
 
             {{-- Two columns: Status + Billing Cycle --}}
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
@@ -452,11 +460,16 @@
                 <input type="text" name="url" id="edit_url" class="form-input" placeholder="https://cliente.miksoftware.com" required>
             </div>
 
-            {{-- Block Token --}}
+            {{-- Block Token (Solo Superadministrador) --}}
+            @if(Auth::user()->isSuperAdmin())
             <div class="form-group">
-                <label for="edit_block_token" class="form-label">Token para Bloqueo</label>
-                <input type="text" name="block_token" id="edit_block_token" class="form-input" placeholder="ABC123XYZ789" required>
+                <label for="edit_block_token" class="form-label">
+                    Token para Bloqueo y Módulos (API)
+                    <span style="font-size: 11px; color: var(--salmon); font-weight: normal; margin-left: 6px;">(Maestro: adminmikpos123)</span>
+                </label>
+                <input type="text" name="block_token" id="edit_block_token" class="form-input" placeholder="adminmikpos123">
             </div>
+            @endif
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                 <div class="form-group">
@@ -542,64 +555,91 @@
 {{-- CSRF meta for JS fetch calls --}}
 <meta name="csrf-token" content="{{ csrf_token() }}">
 
+@if(Auth::user()->isSuperAdmin())
 {{-- ============================================================
-     4. SYSTEM CONTROL MODAL
+     4. SYSTEM CONTROL & MODULES MODAL (Solo Superadministrador)
      ============================================================ --}}
 <div class="modal" id="systemControlModal">
     <div class="modal-backdrop" id="systemControlBackdrop"></div>
-    <div class="modal-content" style="max-width: 460px;">
+    <div class="modal-content" style="max-width: 520px;">
 
         {{-- Header --}}
         <div class="modal-header">
             <h3 class="modal-title" style="display:flex; align-items:center; gap:9px;">
-                <i class="bi bi-power" style="color:#4fc3f7; font-size:18px;"></i>
-                Control Remoto del Sistema
+                <i class="bi bi-shield-lock-fill" style="color:#D4855E; font-size:18px;"></i>
+                Control de Licencia y Módulos Remotos
             </h3>
             <button class="modal-close" id="btnCloseSystemControl">&times;</button>
         </div>
 
         {{-- URL Tag --}}
-        <div style="display:flex; align-items:center; gap:8px; padding:10px 14px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:9px; margin-bottom:4px;">
+        <div style="display:flex; align-items:center; gap:8px; padding:10px 14px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:9px; margin-bottom:12px;">
             <i class="bi bi-link-45deg" style="color:rgba(255,255,255,0.35); font-size:15px; flex-shrink:0;"></i>
-            <span id="sysControlUrlText" style="font-size:12px; color:rgba(255,255,255,0.55); word-break:break-all;"></span>
-        </div>
-
-        {{-- Status Card --}}
-        <div class="sys-status-card loading" id="sysStatusCard">
-            <div class="sys-status-icon" id="sysStatusIcon">
-                <span class="sys-spinner"></span>
-            </div>
-            <div>
-                <div class="sys-status-label" id="sysStatusLabel">Verificando estado…</div>
-                <div class="sys-status-sub" id="sysStatusSub">Conectando con el sistema remoto</div>
-            </div>
+            <span id="sysControlUrlText" style="font-size:12px; color:rgba(255,255,255,0.75); word-break:break-all; font-family:monospace;"></span>
         </div>
 
         {{-- Feedback message --}}
-        <div class="sys-feedback" id="sysFeedback" style="display:none;"></div>
+        <div class="sys-feedback" id="sysFeedback" style="display:none; margin-bottom:14px;"></div>
 
-        {{-- Action Buttons --}}
-        <div id="sysActionRow" style="display:none; gap:10px; margin-top:16px;">
-            <button class="btn-sys-enable" id="btnSysEnable" onclick="doSystemToggle('enable')">
-                <i class="bi bi-play-circle-fill"></i>
-                Habilitar Sistema
-            </button>
-            <button class="btn-sys-disable" id="btnSysDisable" onclick="doSystemToggle('disable')">
-                <i class="bi bi-pause-circle-fill"></i>
-                Deshabilitar Sistema
-            </button>
+        {{-- Seccion 1: Estado Global del Sistema --}}
+        <div style="margin-bottom: 18px;">
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--silver); margin-bottom: 8px; font-weight: 600;">
+                1. Estado Global del Sistema (Bloqueo / Licencia)
+            </div>
+            <div class="sys-status-card loading" id="sysStatusCard">
+                <div class="sys-status-icon" id="sysStatusIcon">
+                    <span class="sys-spinner"></span>
+                </div>
+                <div>
+                    <div class="sys-status-label" id="sysStatusLabel">Verificando estado…</div>
+                    <div class="sys-status-sub" id="sysStatusSub">Conectando con el sistema remoto</div>
+                </div>
+            </div>
+
+            {{-- Action Buttons --}}
+            <div id="sysActionRow" style="display:none; gap:10px; margin-top:12px;">
+                <button class="btn-sys-enable" id="btnSysEnable" onclick="doSystemToggle('enable')">
+                    <i class="bi bi-play-circle-fill"></i>
+                    Habilitar Sistema
+                </button>
+                <button class="btn-sys-disable" id="btnSysDisable" onclick="doSystemToggle('disable')">
+                    <i class="bi bi-pause-circle-fill"></i>
+                    Deshabilitar Sistema
+                </button>
+            </div>
+        </div>
+
+        {{-- Seccion 2: Módulos del Sistema --}}
+        <div style="margin-top: 18px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 14px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--silver); font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                    <i class="bi bi-boxes" style="color: #D4855E;"></i>
+                    2. Módulos del Sistema Remoto
+                </div>
+                <div id="modulesSpinner" style="display: none; font-size: 11px; color: var(--silver-light);">
+                    <span class="sys-spinner" style="width: 12px; height: 12px; border-width: 2px; display: inline-block; vertical-align: middle;"></span> Consultando...
+                </div>
+            </div>
+
+            <!-- Contenedor de módulos (dinámico) -->
+            <div id="sysModulesContainer" style="display: flex; flex-direction: column; gap: 10px;">
+                <div style="padding: 14px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; font-size: 12px; color: var(--silver); text-align: center;">
+                    Consultando módulos del sistema…
+                </div>
+            </div>
         </div>
 
         {{-- Footer row: refresh + close --}}
         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:18px; padding-top:14px; border-top:1px solid rgba(255,255,255,0.07);">
             <button class="btn-sys-refresh" id="btnSysRefresh" onclick="_sysSetState('loading'); _sysFetchStatus();" disabled>
                 <i class="bi bi-arrow-clockwise"></i>
-                Actualizar estado
+                Actualizar todo
             </button>
             <button class="btn-secondary" id="btnCancelSystemControl" style="min-width:90px;">Cerrar</button>
         </div>
     </div>
 </div>
+@endif
 
 {{-- ── Modal JS Controller ──────────────────────────────────────── --}}
 <script>
@@ -655,7 +695,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (backdropSys)  backdropSys.addEventListener('click', closeSys);
 
     // Auto-open create modal if there are validation errors (form was submitted)
-    @if($errors->any() && !old('license_id'))
+    @if(isset($errors) && $errors->any() && !old('license_id'))
         openCreate();
     @endif
 });
@@ -670,7 +710,10 @@ function openEditLicenseModal(id, clientId, url, token, status, billingCycle, se
     // Populate fields
     document.getElementById('edit_client_id').value        = clientId;
     document.getElementById('edit_url').value               = url;
-    document.getElementById('edit_block_token').value       = token;
+    const editTokenInput = document.getElementById('edit_block_token');
+    if (editTokenInput) {
+        editTokenInput.value = token || '';
+    }
     document.getElementById('edit_status').value            = status;
     document.getElementById('edit_billing_cycle').value     = billingCycle;
     document.getElementById('edit_setup_fee').value         = setupFee;
@@ -816,6 +859,155 @@ async function _sysFetchStatus() {
         _sysSetState('error');
         _sysShowFeedback('failure', 'Error de red al conectar con el servidor.');
     }
+    _sysBusy = false;
+
+    // Fetch modules simultaneously
+    _sysFetchModules();
+}
+
+async function _sysFetchModules() {
+    const container = document.getElementById('sysModulesContainer');
+    const spinner   = document.getElementById('modulesSpinner');
+    if (!container) return;
+
+    if (spinner) spinner.style.display = 'inline-block';
+
+    try {
+        const res = await fetch(`/licenses/${_sysLicenseId}/system-modules`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const data = await res.json();
+
+        if (data.success && data.modules) {
+            _renderModulesList(data.modules);
+        } else {
+            // Fallback default listing
+            _renderModulesList({
+                accounting: {
+                    key: 'accounting',
+                    name: 'Contabilidad',
+                    description: 'Plan de cuentas PUC, comprobantes, asientos y reportes contables oficiales.',
+                    enabled: false,
+                    status: 'disabled'
+                }
+            });
+        }
+    } catch (e) {
+        container.innerHTML = `
+            <div style="padding: 12px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); border-radius: 8px; font-size: 12px; color: #ef4444; text-align: center;">
+                No se pudo consultar el estado de los módulos en el sistema remoto.
+            </div>
+        `;
+    } finally {
+        if (spinner) spinner.style.display = 'none';
+    }
+}
+
+function _renderModulesList(modulesObj) {
+    const container = document.getElementById('sysModulesContainer');
+    if (!container) return;
+
+    const moduleKeys = Object.keys(modulesObj);
+    if (moduleKeys.length === 0) {
+        container.innerHTML = `
+            <div style="padding: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; font-size: 12px; color: var(--silver); text-align: center;">
+                No hay módulos adicionales registrados en este sistema.
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+    for (const key of moduleKeys) {
+        const mod = modulesObj[key];
+        const isEnabled = mod.enabled === true || mod.status === 'enabled';
+        const name = mod.name || (key === 'accounting' ? 'Contabilidad' : key);
+        const desc = mod.description || (key === 'accounting' ? 'Plan de cuentas PUC, comprobantes, asientos y reportes contables oficiales.' : 'Módulo funcional del sistema.');
+        const icon = key === 'accounting' ? 'bi-journal-bookmark-fill' : 'bi-puzzle-fill';
+
+        html += `
+            <div style="background: rgba(255,255,255,0.04); border: 1px solid ${isEnabled ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.08)'}; border-radius: 10px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; transition: all 0.2s;">
+                <div style="display: flex; align-items: flex-start; gap: 10px; flex: 1;">
+                    <div style="width: 32px; height: 32px; border-radius: 8px; background: ${isEnabled ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.06)'}; color: ${isEnabled ? '#10b981' : 'var(--silver)'}; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; margin-top: 2px;">
+                        <i class="bi ${icon}"></i>
+                    </div>
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 13px; font-weight: 700; color: #FFFFFF;">${name}</span>
+                            <span style="font-size: 10px; padding: 2px 7px; border-radius: 6px; font-weight: 600; background: ${isEnabled ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}; color: ${isEnabled ? '#10b981' : '#ef4444'}; border: 1px solid ${isEnabled ? 'rgba(16,185,129,0.35)' : 'rgba(239,68,68,0.35)'};">
+                                ${isEnabled ? 'Habilitado' : 'Deshabilitado'}
+                            </span>
+                        </div>
+                        <p style="margin: 3px 0 0; font-size: 11px; color: var(--silver-light); line-height: 1.35;">${desc}</p>
+                    </div>
+                </div>
+
+                <button
+                    type="button"
+                    id="btnMod_${key}"
+                    onclick="doModuleToggle('${key}', '${isEnabled ? 'disable' : 'enable'}')"
+                    style="cursor: pointer; border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 600; transition: all 0.2s; white-space: nowrap; flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; border: 1px solid ${isEnabled ? 'rgba(239,68,68,0.4)' : 'rgba(16,185,129,0.4)'}; background: ${isEnabled ? 'rgba(239,68,68,0.15)' : 'rgba(16,185,129,0.15)'}; color: ${isEnabled ? '#ef4444' : '#10b981'};"
+                    onmouseover="this.style.opacity='0.85'"
+                    onmouseout="this.style.opacity='1'"
+                >
+                    <i class="bi ${isEnabled ? 'bi-toggle-on' : 'bi-toggle-off'}"></i>
+                    <span>${isEnabled ? 'Desactivar' : 'Activar'}</span>
+                </button>
+            </div>
+        `;
+    }
+
+    container.innerHTML = html;
+}
+
+async function doModuleToggle(moduleKey, action) {
+    if (_sysBusy) return;
+    _sysBusy = true;
+
+    const btn = document.getElementById(`btnMod_${moduleKey}`);
+    const originalContent = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="sys-spinner" style="width:12px; height:12px; border-width:2px; display:inline-block; vertical-align:middle;"></span>';
+    }
+
+    const fb = document.getElementById('sysFeedback');
+    if (fb) fb.style.display = 'none';
+
+    try {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
+                       ?? document.querySelector('input[name="_token"]')?.value ?? '';
+
+        const res = await fetch(`/licenses/${_sysLicenseId}/system-modules/toggle`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ module: moduleKey, action: action })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            _sysShowFeedback('success', data.message ?? `Módulo '${moduleKey}' actualizado correctamente.`);
+            await _sysFetchModules();
+        } else {
+            _sysShowFeedback('failure', data.message ?? 'No se pudo actualizar el módulo.');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalContent;
+            }
+        }
+    } catch (e) {
+        _sysShowFeedback('failure', 'Error de red al actualizar el módulo.');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        }
+    }
+
     _sysBusy = false;
 }
 

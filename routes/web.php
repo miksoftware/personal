@@ -15,6 +15,7 @@ use App\Http\Controllers\DatabaseImportController;
 use App\Http\Controllers\IncomeController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\SaleController;
+use App\Http\Controllers\Admin\UserController as AdminUserController;
 use Illuminate\Support\Facades\Auth;
 
 // Redirect root URL
@@ -44,9 +45,11 @@ Route::middleware('auth')->group(function () {
     // Licenses CRUD resource routes protected by auth
     Route::resource('licenses', LicenseController::class)->except(['create', 'edit', 'show']);
 
-    // License remote system control (proxy to avoid CORS)
+    // License remote system control (proxy to avoid CORS - Solo Superadministrador)
     Route::get('/licenses/{license}/system-status', [LicenseController::class, 'systemStatus'])->name('licenses.system-status');
     Route::post('/licenses/{license}/system-toggle', [LicenseController::class, 'systemToggle'])->name('licenses.system-toggle');
+    Route::get('/licenses/{license}/system-modules', [LicenseController::class, 'systemModules'])->name('licenses.system-modules');
+    Route::post('/licenses/{license}/system-modules/toggle', [LicenseController::class, 'systemModuleToggle'])->name('licenses.system-modules.toggle');
 
     // Developments CRUD resource routes protected by auth
     Route::resource('developments', DevelopmentController::class)->except(['create', 'edit', 'show']);
@@ -84,6 +87,13 @@ Route::middleware('auth')->group(function () {
     Route::resource('credits', CreditController::class)->except(['create', 'edit']);
     Route::post('/credits/{credit}/payments', [CreditController::class, 'storePayment'])->name('credits.payments.store');
     Route::delete('/credits/{credit}/payments/{creditPayment}', [CreditController::class, 'destroyPayment'])->name('credits.payments.destroy');
+
+    // Superadmin SaaS Management (Usuarios Registrados)
+    Route::middleware('superadmin')->prefix('admin')->name('admin.')->group(function () {
+        Route::get('/users', [AdminUserController::class, 'index'])->name('users.index');
+        Route::post('/users/{user}/toggle-status', [AdminUserController::class, 'toggleStatus'])->name('users.toggle-status');
+        Route::post('/users/{user}/reset-password', [AdminUserController::class, 'resetPassword'])->name('users.reset-password');
+    });
 
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 });

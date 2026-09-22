@@ -13,6 +13,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Trust all proxies so Laravel correctly detects HTTPS when behind nginx/reverse proxy
         $middleware->trustProxies(at: '*');
+        $middleware->appendToGroup('web', \App\Http\Middleware\EnsureUserIsActive::class);
+        $middleware->alias([
+            'superadmin' => \App\Http\Middleware\EnsureSuperAdmin::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
