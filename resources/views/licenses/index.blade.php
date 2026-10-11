@@ -32,12 +32,13 @@
 
     {{-- Filter Bar --}}
     <div class="filter-bar">
-        <form action="{{ route('licenses.index') }}" method="GET" class="search-wrapper" style="display:flex; gap:16px; background: transparent; border: none; padding: 0;">
+        <form action="{{ route('licenses.index') }}" method="GET" class="search-wrapper" id="licenseSearchForm" style="display:flex; gap:16px; background: transparent; border: none; padding: 0;">
             <div style="position:relative; flex-grow:1; display:flex; align-items:center;">
-                <i class="bi bi-search search-icon" style="position:absolute; left:16px;"></i>
+                <i class="bi bi-search search-icon" id="licenseSearchIcon" style="position:absolute; left:16px; transition: all 0.2s;"></i>
                 <input
                     type="text"
                     name="search"
+                    id="licenseSearchInput"
                     class="search-input"
                     placeholder="Buscar por URL o nombre de cliente..."
                     value="{{ $search }}"
@@ -48,8 +49,8 @@
             
             <div style="display:flex; align-items:center; gap:8px; background:var(--surface-color); border:1px solid rgba(255, 255, 255, 0.08); border-radius:10px; padding:0 12px;">
                 <label for="per_page" style="color:var(--silver-light); font-size:13px; white-space:nowrap; font-weight:500;">Mostrar:</label>
-                <select name="per_page" id="per_page" onchange="this.form.submit()" style="background:transparent; border:none; color:var(--white); font-size:13px; outline:none; padding:8px 0; cursor:pointer;">
-                    <option value="10" {{ request('per_page') == 10 ? 'selected' : '' }} style="color: #000;">10</option>
+                <select name="per_page" id="per_page" style="background:transparent; border:none; color:var(--white); font-size:13px; outline:none; padding:8px 0; cursor:pointer;">
+                    <option value="10" {{ request('per_page', 10) == 10 ? 'selected' : '' }} style="color: #000;">10</option>
                     <option value="15" {{ request('per_page') == 15 ? 'selected' : '' }} style="color: #000;">15</option>
                     <option value="30" {{ request('per_page') == 30 ? 'selected' : '' }} style="color: #000;">30</option>
                     <option value="50" {{ request('per_page') == 50 ? 'selected' : '' }} style="color: #000;">50</option>
@@ -64,57 +65,122 @@
         </button>
     </div>
 
-    {{-- Table --}}
-    <div class="table-responsive">
-        @if($licenses->count() > 0)
-            <table class="custom-table">
-                <thead>
-                    <tr>
-                        <th>Cliente</th>
-                        <th>URL del Sitio</th>
-                        @if(Auth::user()->isSuperAdmin())
-                        <th>Token Bloqueo</th>
-                        @endif
-                        <th>Estado</th>
-                        <th>Ciclo</th>
-                        <th>Instalación</th>
-                        <th>Valor a Pagar</th>
-                        <th>Próx. Facturación</th>
-                        <th style="width:90px; text-align:center;">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($licenses as $license)
+    {{-- Content Wrap for Table & Pagination (Live AJAX Search Container) --}}
+    <div id="licensesContentWrap">
+        {{-- Table --}}
+        <div class="table-responsive">
+            @if($licenses->count() > 0)
+                <table class="custom-table" id="licensesTable">
+                    <thead>
                         <tr>
-                            {{-- Client --}}
-                            <td style="font-weight:600;">
-                                {{ $license->client->name }}
-                            </td>
-
-                            {{-- URL --}}
-                            <td>
-                                <span class="license-url" title="{{ $license->url }}">{{ $license->url }}</span>
-                            </td>
-
-                            {{-- Token (Solo Superadministrador) --}}
+                            <th>Cliente</th>
+                            <th>URL del Sitio</th>
                             @if(Auth::user()->isSuperAdmin())
-                            <td>
-                                <span class="license-token" title="{{ $license->block_token }}">{{ $license->block_token ?: 'adminmikpos123 (Por defecto)' }}</span>
-                            </td>
+                            <th>Token Bloqueo</th>
                             @endif
+                            <th>Estado</th>
+                            <th>Módulos</th>
+                            <th>Ciclo</th>
+                            <th>Instalación</th>
+                            <th>Valor a Pagar</th>
+                            <th>Próx. Facturación</th>
+                            <th style="width:90px; text-align:center;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($licenses as $license)
+                            <tr>
+                                {{-- Client --}}
+                                <td style="font-weight:600;">
+                                    {{ $license->client->name }}
+                                </td>
 
-                            {{-- Status Badge --}}
-                            <td>
-                                <span class="badge-status {{ $license->status }}">
-                                    <i class="bi bi-circle-fill" style="font-size:7px;"></i>
-                                    {{ $license->status_label }}
-                                </span>
-                            </td>
+                                {{-- URL --}}
+                                <td>
+                                    <span class="license-url" title="{{ $license->url }}">{{ $license->url }}</span>
+                                </td>
 
-                            {{-- Billing Cycle --}}
-                            <td>
-                                <span class="badge-cycle">{{ $license->billing_cycle_label }}</span>
-                            </td>
+                                {{-- Token (Solo Superadministrador) --}}
+                                @if(Auth::user()->isSuperAdmin())
+                                <td>
+                                    <span class="license-token" title="{{ $license->block_token }}">{{ $license->block_token ?: 'adminmikpos123 (Por defecto)' }}</span>
+                                </td>
+                                @endif
+
+                                {{-- Status Badge --}}
+                                <td>
+                                    <span class="badge-status {{ $license->status }}">
+                                        <i class="bi bi-circle-fill" style="font-size:7px;"></i>
+                                        {{ $license->status_label }}
+                                    </span>
+                                </td>
+
+                                {{-- Módulos del Sistema --}}
+                                <td>
+                                    @php
+                                        $cachedMod = $modulesMap[$license->id] ?? null;
+                                        $hasCache = !empty($cachedMod);
+                                        $accEnabled = $hasCache ? (($cachedMod['accounting']['enabled'] ?? false) || ($cachedMod['accounting']['status'] ?? '') === 'enabled') : null;
+                                        $ecomEnabled = $hasCache ? (($cachedMod['ecommerce']['enabled'] ?? false) || ($cachedMod['ecommerce']['status'] ?? '') === 'enabled') : null;
+                                        $isSuper = Auth::user()->isSuperAdmin();
+                                    @endphp
+                                    <div class="license-modules-cell" id="modulesCell_{{ $license->id }}" data-license-id="{{ $license->id }}">
+                                        {{-- Contabilidad --}}
+                                        <div class="mod-table-badge {{ $accEnabled === true ? 'enabled' : ($accEnabled === false ? 'disabled' : 'loading') }} {{ $isSuper ? 'interactive' : '' }}"
+                                             id="modBadge_{{ $license->id }}_accounting"
+                                             data-module="accounting"
+                                             @if($isSuper)
+                                             onclick="quickToggleModule({{ $license->id }}, 'accounting', event)"
+                                             title="Módulo Contabilidad: {{ $accEnabled === true ? 'Habilitado' : ($accEnabled === false ? 'Deshabilitado' : 'Cargando...') }} (Clic para alternar)"
+                                             @else
+                                             title="Módulo Contabilidad: {{ $accEnabled === true ? 'Habilitado' : ($accEnabled === false ? 'Deshabilitado' : 'Consultando...') }}"
+                                             @endif
+                                        >
+                                            <span class="mod-table-label">
+                                                <i class="bi bi-journal-bookmark-fill"></i> Conta
+                                            </span>
+                                            <span class="mod-table-status" id="modStatusText_{{ $license->id }}_accounting">
+                                                @if($accEnabled === true)
+                                                    <i class="bi bi-check-circle-fill"></i> Activo
+                                                @elseif($accEnabled === false)
+                                                    <i class="bi bi-slash-circle-fill"></i> Inactivo
+                                                @else
+                                                    <span class="sys-spinner mini"></span>
+                                                @endif
+                                            </span>
+                                        </div>
+
+                                        {{-- Tienda Virtual --}}
+                                        <div class="mod-table-badge {{ $ecomEnabled === true ? 'enabled' : ($ecomEnabled === false ? 'disabled' : 'loading') }} {{ $isSuper ? 'interactive' : '' }}"
+                                             id="modBadge_{{ $license->id }}_ecommerce"
+                                             data-module="ecommerce"
+                                             @if($isSuper)
+                                             onclick="quickToggleModule({{ $license->id }}, 'ecommerce', event)"
+                                             title="Módulo Tienda Virtual: {{ $ecomEnabled === true ? 'Habilitado' : ($ecomEnabled === false ? 'Deshabilitado' : 'Cargando...') }} (Clic para alternar)"
+                                             @else
+                                             title="Módulo Tienda Virtual: {{ $ecomEnabled === true ? 'Habilitado' : ($ecomEnabled === false ? 'Deshabilitado' : 'Consultando...') }}"
+                                             @endif
+                                        >
+                                            <span class="mod-table-label">
+                                                <i class="bi bi-shop"></i> Tienda
+                                            </span>
+                                            <span class="mod-table-status" id="modStatusText_{{ $license->id }}_ecommerce">
+                                                @if($ecomEnabled === true)
+                                                    <i class="bi bi-check-circle-fill"></i> Activa
+                                                @elseif($ecomEnabled === false)
+                                                    <i class="bi bi-slash-circle-fill"></i> Inactiva
+                                                @else
+                                                    <span class="sys-spinner mini"></span>
+                                                @endif
+                                            </span>
+                                        </div>
+                                    </div>
+                                </td>
+
+                                {{-- Billing Cycle --}}
+                                <td>
+                                    <span class="badge-cycle">{{ $license->billing_cycle_label }}</span>
+                                </td>
 
                             {{-- Setup Fee --}}
                             <td>
@@ -269,6 +335,7 @@
             </div>
         </div>
     @endif
+    </div>
 
 </div>
 
@@ -698,6 +765,10 @@ document.addEventListener('DOMContentLoaded', function () {
     @if(isset($errors) && $errors->any() && !old('license_id'))
         openCreate();
     @endif
+
+    // Inicializar buscador automático y módulos de la tabla
+    initLiveSearch();
+    loadTableModuleStatuses();
 });
 
 // ── Global: open Edit Modal populated with license data ──────────
@@ -881,12 +952,19 @@ async function _sysFetchModules() {
         if (data.success && data.modules) {
             _renderModulesList(data.modules);
         } else {
-            // Fallback default listing
+            // Fallback default listing con Contabilidad y Tienda Virtual
             _renderModulesList({
                 accounting: {
                     key: 'accounting',
                     name: 'Contabilidad',
                     description: 'Plan de cuentas PUC, comprobantes, asientos y reportes contables oficiales.',
+                    enabled: false,
+                    status: 'disabled'
+                },
+                ecommerce: {
+                    key: 'ecommerce',
+                    name: 'Tienda Virtual',
+                    description: 'Módulo de tienda en línea / e-commerce (catálogo web público, pedidos virtuales y checkout).',
                     enabled: false,
                     status: 'disabled'
                 }
@@ -921,9 +999,11 @@ function _renderModulesList(modulesObj) {
     for (const key of moduleKeys) {
         const mod = modulesObj[key];
         const isEnabled = mod.enabled === true || mod.status === 'enabled';
-        const name = mod.name || (key === 'accounting' ? 'Contabilidad' : key);
-        const desc = mod.description || (key === 'accounting' ? 'Plan de cuentas PUC, comprobantes, asientos y reportes contables oficiales.' : 'Módulo funcional del sistema.');
-        const icon = key === 'accounting' ? 'bi-journal-bookmark-fill' : 'bi-puzzle-fill';
+        const isEcom = ['ecommerce', 'tienda', 'shop', 'tiendas'].includes(key.toLowerCase());
+        const isAcc = ['accounting', 'contabilidad'].includes(key.toLowerCase());
+        const name = mod.name || (isAcc ? 'Contabilidad' : (isEcom ? 'Tienda Virtual' : key));
+        const desc = mod.description || (isAcc ? 'Plan de cuentas PUC, comprobantes, asientos y reportes contables oficiales.' : (isEcom ? 'Módulo de tienda en línea / e-commerce (catálogo web público, pedidos virtuales y checkout).' : 'Módulo funcional del sistema.'));
+        const icon = isAcc ? 'bi-journal-bookmark-fill' : (isEcom ? 'bi-shop' : 'bi-puzzle-fill');
 
         html += `
             <div style="background: rgba(255,255,255,0.04); border: 1px solid ${isEnabled ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.08)'}; border-radius: 10px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; transition: all 0.2s;">
@@ -992,6 +1072,9 @@ async function doModuleToggle(moduleKey, action) {
 
         if (data.success) {
             _sysShowFeedback('success', data.message ?? `Módulo '${moduleKey}' actualizado correctamente.`);
+            const isNowEnabled = data.enabled === true || data.status === 'enabled';
+            _updateTableModuleBadge(_sysLicenseId, moduleKey, isNowEnabled);
+            showLicenseToast('success', data.message ?? `Módulo actualizado.`);
             await _sysFetchModules();
         } else {
             _sysShowFeedback('failure', data.message ?? 'No se pudo actualizar el módulo.');
@@ -1009,6 +1092,266 @@ async function doModuleToggle(moduleKey, action) {
     }
 
     _sysBusy = false;
+}
+
+// ── Actualización de badges de módulos en la tabla principal ───────────
+function _updateTableModuleBadge(licenseId, moduleKey, isEnabled) {
+    const normKey = ['ecommerce', 'tienda', 'shop', 'tiendas'].includes(moduleKey.toLowerCase()) ? 'ecommerce' : 'accounting';
+    const badge = document.getElementById(`modBadge_${licenseId}_${normKey}`);
+    const statusText = document.getElementById(`modStatusText_${licenseId}_${normKey}`);
+    if (!badge || !statusText) return;
+
+    badge.classList.remove('loading', 'offline', 'enabled', 'disabled');
+    badge.classList.add(isEnabled ? 'enabled' : 'disabled');
+    badge.title = (normKey === 'ecommerce' ? 'Módulo Tienda Virtual: ' : 'Módulo Contabilidad: ') + (isEnabled ? 'Habilitado' : 'Deshabilitado') + ' (Clic para alternar)';
+
+    const label = normKey === 'ecommerce' ? (isEnabled ? 'Activa' : 'Inactiva') : (isEnabled ? 'Activo' : 'Inactivo');
+    statusText.innerHTML = isEnabled 
+        ? `<i class="bi bi-check-circle-fill"></i> ${label}` 
+        : `<i class="bi bi-slash-circle-fill"></i> ${label}`;
+}
+
+function _markTableModuleOffline(licenseId) {
+    ['accounting', 'ecommerce'].forEach(key => {
+        const badge = document.getElementById(`modBadge_${licenseId}_${key}`);
+        const statusText = document.getElementById(`modStatusText_${licenseId}_${key}`);
+        if (badge && badge.classList.contains('loading')) {
+            badge.classList.remove('loading');
+            badge.classList.add('offline');
+            badge.title = 'No se pudo conectar con el sistema remoto';
+            if (statusText) statusText.innerHTML = '<i class="bi bi-wifi-off"></i> N/D';
+        }
+    });
+}
+
+// ── Carga en segundo plano de módulos visibles en la tabla ────────────
+async function loadTableModuleStatuses() {
+    const cells = document.querySelectorAll('.license-modules-cell');
+    if (!cells.length) return;
+
+    cells.forEach(async (cell) => {
+        const licenseId = cell.dataset.licenseId;
+        const loadingBadges = cell.querySelectorAll('.mod-table-badge.loading');
+        // Solo consultar si al menos un módulo está en estado de carga
+        if (loadingBadges.length > 0) {
+            try {
+                const res = await fetch(`/licenses/${licenseId}/system-modules`, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                const data = await res.json();
+                if (data.success && data.modules) {
+                    const acc = data.modules.accounting;
+                    const ecom = data.modules.ecommerce || data.modules.shop || data.modules.tienda;
+                    if (acc) {
+                        const accEnabled = acc.enabled === true || acc.status === 'enabled';
+                        _updateTableModuleBadge(licenseId, 'accounting', accEnabled);
+                    }
+                    if (ecom) {
+                        const ecomEnabled = ecom.enabled === true || ecom.status === 'enabled';
+                        _updateTableModuleBadge(licenseId, 'ecommerce', ecomEnabled);
+                    }
+                } else {
+                    _markTableModuleOffline(licenseId);
+                }
+            } catch (e) {
+                _markTableModuleOffline(licenseId);
+            }
+        }
+    });
+}
+
+// ── Alternar módulo directamente desde la tabla ───────────────────────
+async function quickToggleModule(licenseId, moduleKey, event) {
+    if (event) {
+        event.stopPropagation();
+    }
+    const normKey = ['ecommerce', 'tienda', 'shop', 'tiendas'].includes(moduleKey.toLowerCase()) ? 'ecommerce' : 'accounting';
+    const badge = document.getElementById(`modBadge_${licenseId}_${normKey}`);
+    const statusText = document.getElementById(`modStatusText_${licenseId}_${normKey}`);
+    if (!badge || badge.classList.contains('processing')) return;
+
+    const isCurrentlyEnabled = badge.classList.contains('enabled');
+    const newAction = isCurrentlyEnabled ? 'disable' : 'enable';
+
+    badge.classList.add('processing');
+    const previousHtml = statusText ? statusText.innerHTML : '';
+    if (statusText) {
+        statusText.innerHTML = '<span class="sys-spinner mini"></span>';
+    }
+
+    try {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
+                       ?? document.querySelector('input[name="_token"]')?.value ?? '';
+
+        const res = await fetch(`/licenses/${licenseId}/system-modules/toggle`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ module: normKey, action: newAction })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            const isNowEnabled = data.enabled === true || data.status === 'enabled';
+            _updateTableModuleBadge(licenseId, normKey, isNowEnabled);
+            showLicenseToast('success', data.message || `Módulo '${normKey === 'ecommerce' ? 'Tienda Virtual' : 'Contabilidad'}' actualizado.`);
+        } else {
+            if (statusText) statusText.innerHTML = previousHtml;
+            showLicenseToast('error', data.message || 'No se pudo actualizar el módulo.');
+        }
+    } catch (e) {
+        if (statusText) statusText.innerHTML = previousHtml;
+        showLicenseToast('error', 'Error de red al actualizar el módulo.');
+    } finally {
+        badge.classList.remove('processing');
+    }
+}
+
+// ── Buscador automático en tiempo real (Live Search) ───────────────────
+let _searchDebounceTimer = null;
+let _searchAbortController = null;
+
+function initLiveSearch() {
+    const searchInput = document.getElementById('licenseSearchInput');
+    const searchForm = document.getElementById('licenseSearchForm');
+    const searchIcon = document.getElementById('licenseSearchIcon');
+    const perPageSelect = document.getElementById('per_page');
+
+    if (!searchInput) return;
+
+    // 1. Evitar envío tradicional con recarga de página al presionar Enter en el formulario
+    if (searchForm) {
+        searchForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+        });
+    }
+
+    // 2. Filtrado mientras el usuario escribe (on input)
+    searchInput.addEventListener('input', function () {
+        const query = searchInput.value.trim();
+
+        // 2a. Filtrado visual instantáneo en filas visibles (0ms de latencia)
+        const rows = document.querySelectorAll('#licensesTable tbody tr');
+        if (rows.length > 0) {
+            const qLower = query.toLowerCase();
+            rows.forEach(row => {
+                if (!qLower) {
+                    row.style.display = '';
+                } else {
+                    const text = row.innerText.toLowerCase();
+                    row.style.display = text.includes(qLower) ? '' : 'none';
+                }
+            });
+        }
+
+        // 2b. Búsqueda con debounce en servidor (300ms) para consultar toda la base de datos
+        clearTimeout(_searchDebounceTimer);
+        if (searchIcon) searchIcon.classList.add('spinning');
+
+        _searchDebounceTimer = setTimeout(() => {
+            performLiveSearch(query);
+        }, 300);
+    });
+
+    // 3. Prevenir Enter
+    searchInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            clearTimeout(_searchDebounceTimer);
+            performLiveSearch(searchInput.value.trim());
+        }
+    });
+
+    // 4. Cambio en selector "Mostrar X registros"
+    if (perPageSelect) {
+        perPageSelect.addEventListener('change', function () {
+            performLiveSearch(searchInput.value.trim());
+        });
+    }
+
+    // 5. Interceptar clics en enlaces de paginación para mantener experiencia SPA sin recarga
+    document.addEventListener('click', function (e) {
+        const pagLink = e.target.closest('#licensesContentWrap .pagination-wrapper a');
+        if (pagLink && pagLink.href) {
+            e.preventDefault();
+            fetchAndSwapTable(pagLink.href);
+        }
+    });
+}
+
+async function performLiveSearch(query) {
+    const perPage = document.getElementById('per_page')?.value || 10;
+    const url = new URL(window.location.origin + window.location.pathname);
+    if (query) {
+        url.searchParams.set('search', query);
+    }
+    url.searchParams.set('per_page', perPage);
+
+    await fetchAndSwapTable(url.toString(), true);
+}
+
+async function fetchAndSwapTable(url, updateHistory = true) {
+    const searchIcon = document.getElementById('licenseSearchIcon');
+    if (searchIcon) searchIcon.classList.add('spinning');
+
+    if (_searchAbortController) {
+        _searchAbortController.abort();
+    }
+    _searchAbortController = new AbortController();
+
+    try {
+        const res = await fetch(url, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            signal: _searchAbortController.signal
+        });
+        const html = await res.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+
+        const newContent = doc.getElementById('licensesContentWrap');
+        const currentContent = document.getElementById('licensesContentWrap');
+
+        if (newContent && currentContent) {
+            currentContent.innerHTML = newContent.innerHTML;
+        }
+
+        if (updateHistory) {
+            window.history.replaceState(null, '', url);
+        }
+
+        // Cargar módulos para las nuevas filas que hayan aparecido
+        loadTableModuleStatuses();
+    } catch (e) {
+        if (e.name !== 'AbortError') {
+            console.error('Error al actualizar tabla en vivo:', e);
+        }
+    } finally {
+        if (searchIcon) searchIcon.classList.remove('spinning');
+    }
+}
+
+// ── Notificaciones flotantes ligeras (Toast) ──────────────────────────
+function showLicenseToast(type, message) {
+    let toast = document.getElementById('licenseToast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'licenseToast';
+        toast.className = 'license-floating-toast';
+        document.body.appendChild(toast);
+    }
+    const icon = type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill';
+    toast.className = `license-floating-toast ${type}`;
+    toast.innerHTML = `<i class="bi ${icon}"></i><span>${message}</span>`;
+    toast.style.display = 'flex';
+
+    if (window._toastTimeout) clearTimeout(window._toastTimeout);
+    window._toastTimeout = setTimeout(() => {
+        toast.style.display = 'none';
+    }, 4000);
 }
 
 async function doSystemToggle(action) {

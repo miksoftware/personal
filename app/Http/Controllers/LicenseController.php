@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 
 class LicenseController extends Controller
@@ -53,7 +54,16 @@ class LicenseController extends Controller
             ])->values())
             ->toArray();
 
-        return view('licenses.index', compact('licenses', 'clients', 'search', 'creditsByClient'));
+        // Retrieve any cached module states for the paginated licenses
+        $modulesMap = [];
+        foreach ($licenses as $lic) {
+            $cached = Cache::get("license_modules_{$lic->id}");
+            if (!empty($cached)) {
+                $modulesMap[$lic->id] = $cached;
+            }
+        }
+
+        return view('licenses.index', compact('licenses', 'clients', 'search', 'creditsByClient', 'modulesMap'));
     }
 
     /**
@@ -280,25 +290,116 @@ class LicenseController extends Controller
         $token = $this->getRemoteToken($license);
 
         try {
-            $response = Http::timeout(8)
-                ->withHeaders([
-                    'Accept' => 'application/json',
-                    'X-System-Token' => $token,
-                    'Authorization' => 'Bearer ' . $token,
-                ])
-                ->get(rtrim($license->url, '/') . '/api/system/modules', [
-                    'token' => $token,
-                ]);
+            $modules = [];
+            $connected = false;
 
-            $body = $response->json() ?? ['success' => false, 'message' => 'Respuesta no válida del sistema remoto.'];
-            return response()->json($body, $response->status());
+            // 1. Consultar endpoint principal de módulos
+            try {
+                $response = Http::timeout(6)
+                    ->withHeaders([
+                        'Accept' => 'application/json',
+                        'X-System-Token' => $token,
+                        'Authorization' => 'Bearer ' . $token,
+                    ])
+                    ->get(rtrim($license->url, '/') . '/api/system/modules', [
+                        'token' => $token,
+                    ]);
+
+                if ($response->successful()) {
+                    $body = $response->json();
+                    if (!empty($body['modules']) && is_array($body['modules'])) {
+                        $modules = $body['modules'];
+                        $connected = true;
+                    }
+                }
+            } catch (\Exception $e) {
+                // Continuar a verificar si el endpoint dedicado de tienda responde
+            }
+
+            // 2. Si la tienda no está en los módulos, consultar el endpoint dedicado de tienda (/api/system/shop/status)
+            if (!isset($modules['ecommerce']) && !isset($modules['shop']) && !isset($modules['tienda'])) {
+                try {
+                    $shopRes = Http::timeout(4)
+                        ->withHeaders([
+                            'Accept' => 'application/json',
+                            'X-System-Token' => $token,
+                            'Authorization' => 'Bearer ' . $token,
+                        ])
+                        ->get(rtrim($license->url, '/') . '/api/system/shop/status', [
+                            'token' => $token,
+                        ]);
+
+                    if ($shopRes->successful()) {
+                        $shopData = $shopRes->json();
+                        $connected = true;
+                        if (isset($shopData['module'])) {
+                            $modules['ecommerce'] = $shopData['module'];
+                        } elseif (isset($shopData['success'])) {
+                            $isShopEnabled = ($shopData['status'] ?? '') === 'enabled' || ($shopData['enabled'] ?? false);
+                            $modules['ecommerce'] = [
+                                'key' => 'ecommerce',
+                                'name' => 'Tienda Virtual',
+                                'description' => 'Módulo de tienda en línea / e-commerce (catálogo web público, pedidos virtuales y checkout).',
+                                'enabled' => (bool)$isShopEnabled,
+                                'status' => $isShopEnabled ? 'enabled' : 'disabled',
+                            ];
+                        }
+                    }
+                } catch (\Exception $e) {
+                    // Silently continue
+                }
+            }
+
+            if (!$connected && empty($modules)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se pudo conectar con el sistema remoto para consultar los módulos.',
+                ], 503);
+            }
+
+            // Garantizar claves estándar accounting y ecommerce
+            if (!isset($modules['accounting'])) {
+                $modules['accounting'] = [
+                    'key' => 'accounting',
+                    'name' => 'Contabilidad',
+                    'description' => 'Plan de cuentas PUC, comprobantes, asientos y reportes contables oficiales.',
+                    'enabled' => false,
+                    'status' => 'disabled',
+                ];
+            }
+            if (!isset($modules['ecommerce'])) {
+                // Si existe shop o tienda, normalizar a ecommerce
+                if (isset($modules['shop'])) {
+                    $modules['ecommerce'] = $modules['shop'];
+                    $modules['ecommerce']['key'] = 'ecommerce';
+                } elseif (isset($modules['tienda'])) {
+                    $modules['ecommerce'] = $modules['tienda'];
+                    $modules['ecommerce']['key'] = 'ecommerce';
+                } else {
+                    $modules['ecommerce'] = [
+                        'key' => 'ecommerce',
+                        'name' => 'Tienda Virtual',
+                        'description' => 'Módulo de tienda en línea / e-commerce (catálogo web público, pedidos virtuales y checkout).',
+                        'enabled' => false,
+                        'status' => 'disabled',
+                    ];
+                }
+            }
+
+            // Cachear el estado de los módulos para despliegue instantáneo en la tabla
+            Cache::put("license_modules_{$license->id}", $modules, now()->addMinutes(30));
+
+            return response()->json([
+                'success' => true,
+                'modules' => $modules,
+            ], 200);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => 'No se pudo conectar con el sistema remoto para consultar los módulos.'], 503);
         }
     }
 
     /**
-     * Proxy: Toggle a remote system module (e.g. accounting).
+     * Proxy: Toggle a remote system module (e.g. accounting, ecommerce).
      * Exclusivo para Superadministrador (softwaremik).
      */
     public function systemModuleToggle(Request $request, License $license): JsonResponse
@@ -311,12 +412,16 @@ class LicenseController extends Controller
             'enabled' => ['nullable', 'boolean'],
         ]);
 
+        $rawModule = strtolower(trim($validated['module']));
+        $isEcommerce = in_array($rawModule, ['ecommerce', 'tienda', 'tiendas', 'shop', 'ecommerce_orders']);
+        $moduleKey = $isEcommerce ? 'ecommerce' : $rawModule;
+
         $token = $this->getRemoteToken($license);
 
         try {
             $payload = [
                 'token'  => $token,
-                'module' => $validated['module'],
+                'module' => $moduleKey,
             ];
             if (isset($validated['action'])) {
                 $payload['action'] = $validated['action'];
@@ -333,10 +438,67 @@ class LicenseController extends Controller
                 ])
                 ->post(rtrim($license->url, '/') . '/api/system/modules/toggle', $payload);
 
+            // Si es tienda/ecommerce y el endpoint genérico falla o no existe, intentar fallback al endpoint dedicado /api/system/shop/toggle
+            if (!$response->successful() && $isEcommerce) {
+                $shopPayload = ['token' => $token];
+                if (isset($validated['action'])) {
+                    $shopPayload['action'] = $validated['action'];
+                }
+                $fallbackResponse = Http::timeout(8)
+                    ->withHeaders([
+                        'Accept' => 'application/json',
+                        'X-System-Token' => $token,
+                        'Authorization' => 'Bearer ' . $token,
+                    ])
+                    ->post(rtrim($license->url, '/') . '/api/system/shop/toggle', $shopPayload);
+
+                if ($fallbackResponse->successful()) {
+                    $body = $fallbackResponse->json() ?? [];
+                    $isEnabled = $body['module']['enabled'] ?? (($body['status'] ?? ($body['module']['status'] ?? '')) === 'enabled');
+                    $this->updateCachedModuleStatus($license->id, 'ecommerce', (bool)$isEnabled);
+                    return response()->json([
+                        'success' => true,
+                        'module' => 'ecommerce',
+                        'name' => 'Tienda Virtual',
+                        'status' => $isEnabled ? 'enabled' : 'disabled',
+                        'enabled' => (bool)$isEnabled,
+                        'message' => $body['message'] ?? ($isEnabled ? "Módulo 'Tienda Virtual' habilitado correctamente." : "Módulo 'Tienda Virtual' deshabilitado correctamente."),
+                    ]);
+                }
+            }
+
             $body = $response->json() ?? ['success' => false, 'message' => 'Respuesta no válida del sistema remoto.'];
+
+            if ($response->successful()) {
+                $isEnabled = $body['enabled'] ?? (($body['status'] ?? '') === 'enabled');
+                $this->updateCachedModuleStatus($license->id, $moduleKey, (bool)$isEnabled);
+            }
+
             return response()->json($body, $response->status());
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => 'No se pudo conectar con el sistema remoto para actualizar el módulo.'], 503);
+        }
+    }
+
+    /**
+     * Helper to update locally cached module status after toggle.
+     */
+    private function updateCachedModuleStatus(int $licenseId, string $moduleKey, bool $isEnabled): void
+    {
+        $cached = Cache::get("license_modules_{$licenseId}");
+        if (is_array($cached)) {
+            if (isset($cached[$moduleKey])) {
+                $cached[$moduleKey]['enabled'] = $isEnabled;
+                $cached[$moduleKey]['status'] = $isEnabled ? 'enabled' : 'disabled';
+            } else {
+                $cached[$moduleKey] = [
+                    'key' => $moduleKey,
+                    'name' => $moduleKey === 'accounting' ? 'Contabilidad' : 'Tienda Virtual',
+                    'enabled' => $isEnabled,
+                    'status' => $isEnabled ? 'enabled' : 'disabled',
+                ];
+            }
+            Cache::put("license_modules_{$licenseId}", $cached, now()->addMinutes(30));
         }
     }
 }

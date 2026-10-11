@@ -179,6 +179,7 @@ body {
     color: var(--white);
     background: linear-gradient(135deg, var(--white), var(--silver));
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 
@@ -186,6 +187,7 @@ body {
     color: var(--salmon);
     background: linear-gradient(135deg, var(--salmon-light), var(--salmon));
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 
@@ -1391,6 +1393,136 @@ body {
     background: rgba(255, 82, 82, 0.1);
     color: #ff7070;
     border: 1px solid rgba(255, 82, 82, 0.22);
+}
+
+/* License Table - Module Badges & Status */
+.license-modules-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 130px;
+}
+.mod-table-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.25;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    user-select: none;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--silver, #bbb);
+    box-sizing: border-box;
+}
+.mod-table-badge.interactive {
+    cursor: pointer;
+}
+.mod-table-badge.interactive:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+.mod-table-badge.enabled {
+    background: rgba(16, 185, 129, 0.12);
+    border-color: rgba(16, 185, 129, 0.35);
+    color: #10b981;
+}
+.mod-table-badge.enabled:hover {
+    background: rgba(16, 185, 129, 0.22);
+    border-color: rgba(16, 185, 129, 0.6);
+}
+.mod-table-badge.disabled {
+    background: rgba(239, 68, 68, 0.09);
+    border-color: rgba(239, 68, 68, 0.28);
+    color: #f87171;
+}
+.mod-table-badge.disabled:hover {
+    background: rgba(239, 68, 68, 0.18);
+    border-color: rgba(239, 68, 68, 0.5);
+}
+.mod-table-badge.loading {
+    background: rgba(255, 255, 255, 0.02);
+    border-color: rgba(255, 255, 255, 0.06);
+    color: var(--silver-light, #888);
+}
+.mod-table-badge.offline {
+    background: rgba(245, 158, 11, 0.08);
+    border-color: rgba(245, 158, 11, 0.25);
+    color: #fbbf24;
+}
+.mod-table-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 700;
+}
+.mod-table-status {
+    font-size: 10px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    border-radius: 4px;
+    padding: 1px 5px;
+}
+.mod-table-badge.enabled .mod-table-status {
+    background: rgba(16, 185, 129, 0.18);
+}
+.mod-table-badge.disabled .mod-table-status {
+    background: rgba(239, 68, 68, 0.18);
+}
+.mod-table-badge.offline .mod-table-status {
+    background: rgba(245, 158, 11, 0.18);
+}
+.sys-spinner.mini {
+    width: 10px;
+    height: 10px;
+    border-width: 1.5px;
+    vertical-align: middle;
+}
+
+/* Floating Toast Notification */
+.license-floating-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    padding: 12px 18px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+    animation: toastSlideUp 0.25s ease-out;
+}
+@keyframes toastSlideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+.license-floating-toast.success {
+    background: rgba(6, 78, 59, 0.95);
+    border: 1px solid #10b981;
+    color: #d1fae5;
+}
+.license-floating-toast.error {
+    background: rgba(127, 29, 29, 0.95);
+    border: 1px solid #ef4444;
+    color: #fee2e2;
+}
+
+/* Search Input live indicator */
+.search-icon.spinning {
+    animation: sysSpinAnim 0.75s linear infinite;
+    color: var(--salmon) !important;
 }
 
 /* Custom Table Pagination styling */
