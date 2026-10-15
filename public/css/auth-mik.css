@@ -2519,21 +2519,24 @@ body {
         display: grid;
         grid-template-columns: 1fr auto;
         grid-template-areas:
-            "client  status"
-            "url     url"
-            "tarifa  actions";
-        gap: 6px 10px;
+            "client   status"
+            "url      url"
+            "modules  cycle"
+            "fee      date"
+            "actions  actions";
+        gap: 8px 10px;
         background: rgba(255,255,255,0.03);
         border: 1px solid rgba(255,255,255,0.08);
         border-radius: 14px;
         padding: 14px 16px 12px;
-        margin-bottom: 10px;
+        margin-bottom: 12px;
     }
 
-    /* Hide: token (3), ciclo (5), próx. facturación (7) */
-    .licenses-view .custom-table tbody td:nth-child(3),
-    .licenses-view .custom-table tbody td:nth-child(5),
-    .licenses-view .custom-table tbody td:nth-child(7) { display: none; }
+    /* Hide sensitive or secondary columns */
+    .licenses-view .td-token,
+    .licenses-view .td-setup {
+        display: none !important;
+    }
 
     /* All visible tds: reset table defaults */
     .licenses-view .custom-table tbody td {
@@ -2544,23 +2547,29 @@ body {
         font-size: 13px;
     }
 
-    /* col 1 — Cliente: card title */
-    .licenses-view .custom-table tbody td:nth-child(1) {
+    /* 1. Cliente: Card Title */
+    .licenses-view .td-client {
         grid-area: client;
         font-weight: 700;
         font-size: 15px;
         color: var(--white);
-        align-items: center;
+        word-break: break-word;
     }
 
-    /* col 2 — URL */
-    .licenses-view .custom-table tbody td:nth-child(2) {
+    /* 2. Estado Badge (Activa / Suspendida / Vencida) */
+    .licenses-view .td-status {
+        grid-area: status;
+        justify-content: flex-end;
+    }
+
+    /* 3. URL */
+    .licenses-view .td-url {
         grid-area: url;
         border-bottom: 1px solid rgba(255,255,255,0.05);
         padding-bottom: 8px;
         margin-bottom: 2px;
     }
-    .licenses-view .custom-table tbody td:nth-child(2) .license-url {
+    .licenses-view .td-url .license-url {
         white-space: normal;
         word-break: break-all;
         max-width: none;
@@ -2568,27 +2577,57 @@ body {
         font-size: 12px;
     }
 
-    /* col 4 — Estado */
-    .licenses-view .custom-table tbody td:nth-child(4) {
-        grid-area: status;
+    /* 4. Módulos del Sistema (Conta / Tienda) */
+    .licenses-view .td-modules {
+        grid-area: modules;
+    }
+    .licenses-view .td-modules .license-modules-cell {
+        flex-direction: row;
+        gap: 6px;
+        flex-wrap: wrap;
+        min-width: 0;
+    }
+
+    /* 5. Ciclo de Facturación */
+    .licenses-view .td-cycle {
+        grid-area: cycle;
         justify-content: flex-end;
     }
 
-    /* col 6 — Tarifa */
-    .licenses-view .custom-table tbody td:nth-child(6) {
-        grid-area: tarifa;
+    /* 6. Tarifa / Gratuita */
+    .licenses-view .td-fee {
+        grid-area: fee;
         border-top: 1px solid rgba(255,255,255,0.05);
-        padding-top: 10px;
+        padding-top: 8px;
+        margin-top: 2px;
+        align-items: center;
+    }
+    .licenses-view .td-fee .license-fee {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--white);
+    }
+
+    /* 7. Próxima Facturación / Fechas */
+    .licenses-view .td-date {
+        grid-area: date;
+        justify-content: flex-end;
+        text-align: right;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 2px;
+        border-top: 1px solid rgba(255,255,255,0.05);
+        padding-top: 8px;
         margin-top: 2px;
     }
 
-    /* col 8 — Acciones: big tap targets */
-    .licenses-view .custom-table tbody td:nth-child(8) {
+    /* 8. Acciones */
+    .licenses-view .td-actions {
         grid-area: actions;
         justify-content: flex-end;
         border-top: 1px solid rgba(255,255,255,0.05);
         padding-top: 8px;
-        margin-top: 2px;
+        margin-top: 4px;
     }
     .licenses-view .custom-table .btn-action {
         width: 44px;
@@ -2596,7 +2635,11 @@ body {
         font-size: 17px;
         border-radius: 12px;
     }
-    .licenses-view .custom-table .actions-cell { gap: 8px; }
+    .licenses-view .custom-table .actions-cell {
+        gap: 8px;
+        width: 100%;
+        justify-content: flex-end;
+    }
 
     /* Filter bar: stack vertically on mobile */
     .licenses-view .filter-bar {

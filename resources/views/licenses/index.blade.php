@@ -91,24 +91,24 @@
                         @foreach($licenses as $license)
                             <tr>
                                 {{-- Client --}}
-                                <td style="font-weight:600;">
+                                <td class="td-client" style="font-weight:600;">
                                     {{ $license->client->name }}
                                 </td>
 
                                 {{-- URL --}}
-                                <td>
+                                <td class="td-url">
                                     <span class="license-url" title="{{ $license->url }}">{{ $license->url }}</span>
                                 </td>
 
                                 {{-- Token (Solo Superadministrador) --}}
                                 @if(Auth::user()->isSuperAdmin())
-                                <td>
+                                <td class="td-token">
                                     <span class="license-token" title="{{ $license->block_token }}">{{ $license->block_token ?: 'adminmikpos123 (Por defecto)' }}</span>
                                 </td>
                                 @endif
 
                                 {{-- Status Badge --}}
-                                <td>
+                                <td class="td-status">
                                     <span class="badge-status {{ $license->status }}">
                                         <i class="bi bi-circle-fill" style="font-size:7px;"></i>
                                         {{ $license->status_label }}
@@ -116,7 +116,7 @@
                                 </td>
 
                                 {{-- Módulos del Sistema --}}
-                                <td>
+                                <td class="td-modules">
                                     @php
                                         $cachedMod = $modulesMap[$license->id] ?? null;
                                         $hasCache = !empty($cachedMod);
@@ -178,19 +178,19 @@
                                 </td>
 
                                 {{-- Billing Cycle --}}
-                                <td>
+                                <td class="td-cycle">
                                     <span class="badge-cycle">{{ $license->billing_cycle_label }}</span>
                                 </td>
 
                             {{-- Setup Fee --}}
-                            <td>
+                            <td class="td-setup">
                                 <span style="font-weight:600; color:var(--salmon);">
                                     ${{ number_format($license->setup_fee, 2) }}
                                 </span>
                             </td>
 
                             {{-- Monthly Fee --}}
-                            <td>
+                            <td class="td-fee">
                                 @if($license->is_free)
                                     <span class="badge-free">
                                         <i class="bi bi-gift-fill"></i>
@@ -221,7 +221,7 @@
 
                             {{-- Next Billing Date --}}
                             @if($license->is_free)
-                                <td style="color: var(--silver-light); font-size:13px;">
+                                <td class="td-date td-date-free" style="color: var(--silver-light); font-size:13px;">
                                     <span style="opacity: 0.5;">N/A</span>
                                 </td>
                             @else
@@ -233,7 +233,7 @@
                                     $setupExpired = $hasSetup && $license->next_setup_billing_date && \Carbon\Carbon::parse($license->next_setup_billing_date)->startOfDay()->lt(\Carbon\Carbon::now()->startOfDay());
                                     $setupExpiringToday = $hasSetup && $license->next_setup_billing_date && \Carbon\Carbon::parse($license->next_setup_billing_date)->isToday();
                                 @endphp
-                                <td>
+                                <td class="td-date">
                                     {{-- Service Date --}}
                                     <div style="font-size:13px; {{ $isExpired || $isExpiringToday ? 'color: var(--danger, #ff5252); font-weight: 600;' : 'color: var(--silver-light);' }}">
                                         @if($hasSetup) <span style="font-size:11px; opacity:0.8;">Servicio:</span> @endif
@@ -260,7 +260,7 @@
                             @endif
 
                             {{-- Actions --}}
-                            <td style="text-align:center;">
+                            <td class="td-actions" style="text-align:center;">
                                 <div class="actions-cell" style="justify-content:center; gap:8px;">
                                     {{-- Registrar Pago (Icono Billetes) --}}
                                     <button type="button" class="btn-action edit" title="Registrar pago"
