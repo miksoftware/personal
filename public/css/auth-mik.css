@@ -1407,6 +1407,8 @@ body {
     align-items: center;
     justify-content: space-between;
     gap: 6px;
+    width: 100%;
+    font-family: inherit;
     padding: 3px 8px;
     border-radius: 6px;
     font-size: 11px;
@@ -2507,7 +2509,11 @@ body {
 /* ── Mobile: licenses table → card layout ─────────────────────── */
 @media (max-width: 767px) {
 
-    .licenses-view .table-responsive { overflow-x: visible; }
+    .licenses-view .table-responsive,
+    .licenses-view .lic-table-wrapper {
+        overflow-x: visible;
+        max-block-size: none;
+    }
 
     /* Turn the table into block so each row is a card */
     .licenses-view .custom-table,
@@ -2520,22 +2526,15 @@ body {
         grid-template-columns: 1fr auto;
         grid-template-areas:
             "client   status"
-            "url      url"
-            "modules  cycle"
+            "plan     plan"
             "fee      date"
-            "actions  actions";
-        gap: 8px 10px;
+            "contract actions";
+        gap: 10px 12px;
         background: rgba(255,255,255,0.03);
         border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 14px;
-        padding: 14px 16px 12px;
+        border-radius: 16px;
+        padding: 16px;
         margin-bottom: 12px;
-    }
-
-    /* Hide sensitive or secondary columns */
-    .licenses-view .td-token,
-    .licenses-view .td-setup {
-        display: none !important;
     }
 
     /* All visible tds: reset table defaults */
@@ -2547,87 +2546,66 @@ body {
         font-size: 13px;
     }
 
-    /* 1. Cliente: Card Title */
+    /* 1. Cliente & Sitio */
     .licenses-view .td-client {
         grid-area: client;
-        font-weight: 700;
-        font-size: 15px;
-        color: var(--white);
-        word-break: break-word;
-    }
-
-    /* 2. Estado Badge (Activa / Suspendida / Vencida) */
-    .licenses-view .td-status {
-        grid-area: status;
-        justify-content: flex-end;
-    }
-
-    /* 3. URL */
-    .licenses-view .td-url {
-        grid-area: url;
-        border-bottom: 1px solid rgba(255,255,255,0.05);
-        padding-bottom: 8px;
-        margin-bottom: 2px;
-    }
-    .licenses-view .td-url .license-url {
-        white-space: normal;
-        word-break: break-all;
-        max-width: none;
-        color: rgba(255,255,255,0.45);
-        font-size: 12px;
-    }
-
-    /* 4. Módulos del Sistema (Conta / Tienda) */
-    .licenses-view .td-modules {
-        grid-area: modules;
-    }
-    .licenses-view .td-modules .license-modules-cell {
-        flex-direction: row;
-        gap: 6px;
-        flex-wrap: wrap;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 3px;
         min-width: 0;
     }
 
-    /* 5. Ciclo de Facturación */
-    .licenses-view .td-cycle {
-        grid-area: cycle;
-        justify-content: flex-end;
+    /* 2. Estado & Módulos */
+    .licenses-view .td-status {
+        grid-area: status;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 6px;
     }
 
-    /* 6. Tarifa / Gratuita */
+    /* 3. Plan y Tarifas */
+    .licenses-view .td-plan {
+        grid-area: plan;
+        flex-direction: column;
+        align-items: flex-start;
+        border-top: 1px solid rgba(255,255,255,0.05);
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        padding: 8px 0;
+        gap: 4px;
+    }
+
+    /* 4. Total a Pagar */
     .licenses-view .td-fee {
         grid-area: fee;
-        border-top: 1px solid rgba(255,255,255,0.05);
-        padding-top: 8px;
-        margin-top: 2px;
-        align-items: center;
-    }
-    .licenses-view .td-fee .license-fee {
-        font-size: 15px;
-        font-weight: 700;
-        color: var(--white);
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
     }
 
-    /* 7. Próxima Facturación / Fechas */
+    /* 5. Próximos Vencimientos */
     .licenses-view .td-date {
         grid-area: date;
         justify-content: flex-end;
         text-align: right;
         flex-direction: column;
         align-items: flex-end;
-        gap: 2px;
-        border-top: 1px solid rgba(255,255,255,0.05);
-        padding-top: 8px;
-        margin-top: 2px;
+        gap: 4px;
     }
 
-    /* 8. Acciones */
+    /* 6. Contrato PDF */
+    .licenses-view .td-contract {
+        grid-area: contract;
+        align-items: center;
+        border-top: 1px solid rgba(255,255,255,0.05);
+        padding-top: 10px;
+    }
+
+    /* 7. Acciones */
     .licenses-view .td-actions {
         grid-area: actions;
         justify-content: flex-end;
         border-top: 1px solid rgba(255,255,255,0.05);
-        padding-top: 8px;
-        margin-top: 4px;
+        padding-top: 10px;
     }
     .licenses-view .custom-table .btn-action {
         width: 44px;
@@ -2645,9 +2623,9 @@ body {
     .licenses-view .filter-bar {
         flex-direction: column;
         gap: 10px;
-        padding: 14px 16px;
+        padding: 0 0 14px;
     }
-    .licenses-view .filter-bar .search-wrapper { width: 100%; }
+    .licenses-view .filter-bar .search-wrapper { width: 100%; max-width: 100%; }
     .licenses-view .filter-bar .btn-primary-action { width: 100%; justify-content: center; }
 
     /* Pagination: stack on mobile */
@@ -2655,7 +2633,7 @@ body {
         flex-direction: column;
         gap: 10px;
         align-items: flex-start;
-        padding: 14px 16px;
+        padding: 14px 0 0;
     }
 }
 
@@ -3331,3 +3309,647 @@ body {
     box-shadow: 0 3px 12px rgba(66,165,245,0.15);
 }
 
+
+
+/* ══════════════════════════════════════════════════════════════
+   MODERN DIALOGS, ACCESSIBILITY & LICENSES REDESIGN
+   ══════════════════════════════════════════════════════════════ */
+
+.visually-hidden:where(:not(:focus-within, :active)) {
+    position: absolute !important;
+    clip-path: inset(50%) !important;
+    overflow: hidden !important;
+    width: 1px !important;
+    height: 1px !important;
+    margin: -1px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    white-space: nowrap !important;
+}
+
+/* Native <dialog> modals — never set display unconditionally */
+dialog.mik-dialog {
+    background: #1c092d;
+    color: var(--white);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 24px;
+    padding: 28px 30px;
+    width: min(560px, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
+    max-height: min(90dvh, 880px);
+    margin: auto;
+    box-shadow: 0 25px 65px rgba(0, 0, 0, 0.65);
+    overflow-y: auto;
+}
+
+dialog.mik-dialog[open] {
+    display: flex;
+    flex-direction: column;
+}
+
+dialog.mik-dialog:modal {
+    overscroll-behavior: contain;
+}
+
+dialog.mik-dialog::backdrop {
+    overflow: hidden;
+    overscroll-behavior: contain;
+    background: rgba(11, 0, 22, 0.72);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+dialog.mik-dialog.mik-dialog--sm {
+    width: min(430px, calc(100vw - 24px));
+}
+
+dialog.mik-dialog.mik-dialog--wide {
+    width: min(980px, calc(100vw - 24px));
+    height: min(90dvh, 860px);
+    padding: 22px 24px;
+}
+
+dialog.mik-dialog .modal-header {
+    margin-bottom: 18px;
+}
+
+dialog.mik-dialog .modal-title {
+    margin: 0;
+    font-size: 20px;
+    line-height: 1.25;
+}
+
+dialog.mik-dialog .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+}
+
+dialog.mik-dialog .form-label {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--silver-light);
+}
+
+dialog.mik-dialog .form-input,
+dialog.mik-dialog select,
+dialog.mik-dialog textarea {
+    width: 100%;
+    padding: 10px 14px;
+    min-height: 44px;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 12px;
+    color: var(--white);
+    font: inherit;
+    font-size: max(1rem, 0.92em);
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    box-sizing: border-box;
+}
+
+dialog.mik-dialog select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%239EA3B0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    background-size: 16px;
+    padding-right: 40px;
+}
+
+dialog.mik-dialog select option {
+    background: #1c092d;
+    color: #ffffff;
+}
+
+dialog.mik-dialog :is(input, select, textarea, button, a):focus-visible {
+    outline: 2px solid var(--salmon-light);
+    outline-offset: 2px;
+}
+
+.lic-field-hint {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.62);
+    line-height: 1.4;
+}
+
+.lic-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+@media (max-width: 560px) {
+    .lic-form-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.lic-annual-section {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 14px 16px 4px;
+    margin: 4px 0 14px;
+}
+
+.lic-annual-section-legend {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--salmon-light);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 0 6px;
+}
+
+.lic-live-preview {
+    background: rgba(72, 199, 142, 0.08);
+    border: 1px solid rgba(72, 199, 142, 0.25);
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 13px;
+    color: #d1fae5;
+    line-height: 1.5;
+    margin-bottom: 6px;
+}
+
+.lic-suggestion-btn {
+    margin-top: 4px;
+    align-self: flex-start;
+    background: rgba(245, 158, 11, 0.14);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    color: #fcd34d;
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.lic-suggestion-btn:hover {
+    background: rgba(245, 158, 11, 0.25);
+}
+
+/* ── Licenses KPI Summary Strip ───────────────────────────────── */
+.lic-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+}
+
+@media (max-width: 900px) {
+    .lic-kpi-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.lic-kpi-card {
+    background: var(--glass-bg);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    text-decoration: none;
+    transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.lic-kpi-card.is-danger {
+    background: rgba(255, 82, 82, 0.07);
+    border-color: rgba(255, 82, 82, 0.25);
+}
+
+.lic-kpi-card.is-emerald {
+    background: rgba(72, 199, 142, 0.07);
+    border-color: rgba(72, 199, 142, 0.22);
+}
+
+.lic-kpi-card.is-blue {
+    background: rgba(66, 165, 245, 0.07);
+    border-color: rgba(66, 165, 245, 0.22);
+}
+
+.lic-kpi-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.lic-kpi-card.is-danger .lic-kpi-icon { color: #ff7b7b; background: rgba(255, 82, 82, 0.14); }
+.lic-kpi-card.is-emerald .lic-kpi-icon { color: #48c78e; background: rgba(72, 199, 142, 0.14); }
+.lic-kpi-card.is-blue .lic-kpi-icon { color: #64b5f6; background: rgba(66, 165, 245, 0.14); }
+
+.lic-kpi-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: rgba(255, 255, 255, 0.55);
+    margin-bottom: 3px;
+}
+
+.lic-kpi-value {
+    font-family: 'Outfit', sans-serif;
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--white);
+    line-height: 1.15;
+}
+
+.lic-kpi-sub {
+    font-size: 12px;
+    color: var(--silver-light);
+    margin-top: 2px;
+}
+
+/* ── Filter Pills ─────────────────────────────────────────────── */
+.lic-filter-pills {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+}
+
+.lic-filter-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 13px;
+    border-radius: 99px;
+    font-size: 12px;
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    color: var(--silver-light);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.lic-filter-pill:hover {
+    background: rgba(255, 255, 255, 0.09);
+    color: var(--white);
+}
+
+.lic-filter-pill.active {
+    background: rgba(196, 113, 74, 0.2);
+    border-color: rgba(196, 113, 74, 0.55);
+    color: #fff;
+}
+
+.lic-filter-pill.is-due.active {
+    background: rgba(255, 82, 82, 0.2);
+    border-color: rgba(255, 82, 82, 0.55);
+    color: #ffb4b4;
+}
+
+/* ── Responsive Table Wrapper & Sticky Header ─────────────────── */
+.lic-table-wrapper {
+    overflow: auto;
+    max-inline-size: 100%;
+    max-block-size: min(680px, 72vh);
+    container-type: inline-size;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.lic-table-wrapper .custom-table thead {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 3;
+    background: #170826;
+}
+
+.lic-table-wrapper .custom-table th {
+    background: #170826;
+    white-space: nowrap;
+    padding: 14px 16px;
+}
+
+.lic-table-wrapper .custom-table td {
+    padding: 14px 16px;
+}
+
+/* ── Cell Layouts in Licenses Table ───────────────────────────── */
+.lic-client-name {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--white);
+    margin-bottom: 3px;
+}
+
+.lic-site-link {
+    font-family: 'Outfit', sans-serif;
+    font-size: 12px;
+    color: #9dc5ff;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 240px;
+    word-break: break-all;
+}
+
+.lic-site-link:hover {
+    text-decoration: underline;
+    color: #c2dcff;
+}
+
+.lic-token-chip {
+    margin-top: 5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: monospace;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.55);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 2px 7px;
+}
+
+.badge-cycle.anual_total {
+    background: rgba(245, 158, 11, 0.16);
+    color: #fcd34d;
+    border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.lic-plan-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--silver-light);
+}
+
+.lic-plan-line strong {
+    color: var(--white);
+    font-weight: 600;
+}
+
+.lic-due-box {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 155px;
+}
+
+.lic-due-amount {
+    font-family: 'Outfit', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--white);
+    line-height: 1.1;
+}
+
+.lic-due-box.overdue .lic-due-amount,
+.lic-due-box.due_today .lic-due-amount {
+    color: #ff8a8a;
+}
+
+.lic-due-box.upcoming_soon .lic-due-amount {
+    color: #fcd34d;
+}
+
+.lic-due-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    width: fit-content;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    padding: 2px 8px;
+    border-radius: 99px;
+}
+
+.lic-due-box.overdue .lic-due-pill,
+.lic-due-box.due_today .lic-due-pill {
+    background: rgba(255, 82, 82, 0.16);
+    color: #ff9a9a;
+    border: 1px solid rgba(255, 82, 82, 0.35);
+}
+
+.lic-due-box.upcoming_soon .lic-due-pill {
+    background: rgba(245, 158, 11, 0.14);
+    color: #fcd34d;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.lic-due-box.up_to_date .lic-due-pill {
+    background: rgba(72, 199, 142, 0.12);
+    color: #81c784;
+    border: 1px solid rgba(72, 199, 142, 0.25);
+}
+
+.lic-due-caption {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.65);
+    line-height: 1.35;
+}
+
+.lic-date-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 155px;
+}
+
+.lic-date-item {
+    font-size: 12px;
+    line-height: 1.35;
+    color: var(--silver-light);
+}
+
+.lic-date-item.is-overdue,
+.lic-date-item.is-today {
+    color: #ff8a8a;
+    font-weight: 600;
+}
+
+.lic-date-item.is-soon,
+.lic-date-item.is-missing {
+    color: #fcd34d;
+    font-weight: 600;
+}
+
+.lic-date-tag {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    opacity: 0.78;
+    display: block;
+}
+
+/* ── Contract PDF Column & Viewer ─────────────────────────────── */
+.lic-contract-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+
+.lic-contract-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    min-height: 36px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.lic-contract-btn.has-file {
+    background: rgba(66, 165, 245, 0.14);
+    border: 1px solid rgba(66, 165, 245, 0.38);
+    color: #90caf9;
+}
+
+.lic-contract-btn.has-file:hover {
+    background: rgba(66, 165, 245, 0.26);
+    color: #ffffff;
+}
+
+.lic-contract-btn.no-file {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px dashed rgba(255, 255, 255, 0.22);
+    color: var(--silver-light);
+}
+
+.lic-contract-btn.no-file:hover {
+    background: rgba(196, 113, 74, 0.14);
+    border-color: rgba(196, 113, 74, 0.55);
+    color: var(--white);
+}
+
+.lic-contract-filename {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.48);
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* PDF Dropzone inside Upload Modal */
+.lic-pdf-dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 24px 18px;
+    border-radius: 16px;
+    border: 2px dashed rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.025);
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.lic-pdf-dropzone:hover,
+.lic-pdf-dropzone.is-dragover {
+    border-color: var(--salmon-light);
+    background: rgba(196, 113, 74, 0.08);
+}
+
+.lic-pdf-dropzone input[type="file"] {
+    width: 100%;
+    font-size: 13px;
+    color: var(--silver-light);
+}
+
+/* PDF Viewer Container inside Wide Dialog */
+.lic-pdf-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.lic-pdf-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.lic-pdf-frame-wrap {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    background: rgba(0, 0, 0, 0.28);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.lic-pdf-frame {
+    width: 100%;
+    height: 100%;
+    flex: 1;
+    border: none;
+    background: #1a1026;
+}
+
+/* Payment choice cards */
+.lic-payment-choice {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    padding: 13px 16px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--white);
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.lic-payment-choice:hover {
+    transform: translateY(-1px);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.lic-payment-choice.is-recommended {
+    background: rgba(72, 199, 142, 0.14);
+    border-color: rgba(72, 199, 142, 0.45);
+}
+
+.lic-payment-choice.is-service {
+    border-color: rgba(66, 165, 245, 0.35);
+    background: rgba(66, 165, 245, 0.09);
+}
+
+.lic-payment-choice.is-annual {
+    border-color: rgba(255, 152, 0, 0.35);
+    background: rgba(255, 152, 0, 0.09);
+}

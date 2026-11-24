@@ -71,26 +71,29 @@ class CreditController extends Controller
                     // que NO sea un canje (es decir, que no esté en usedConcepts ya como abono de crédito)
                     
                     $monthlyConcept = 'Canje Mensualidad: ' . $l->url;
+                    $annualTotalConcept = 'Canje Anual Total: ' . $l->url;
                     $setupConcept   = 'Canje Instalación: ' . $l->url;
 
-                    // Si ya se registró un pago físico de mensualidad para esta licencia en el mes actual, lo quitamos de sugerencias
+                    // Si ya se registró un pago físico de mensualidad/ciclo para esta licencia en el mes actual, lo quitamos de sugerencias
                     $hasMonthlyPayment = \App\Models\Payment::where('license_id', $l->id)
-                        ->where('license_payment_type', 'mensualidad')
+                        ->whereIn('license_payment_type', ['mensualidad', 'total', 'anual_total'])
                         ->whereMonth('payment_date', now()->month)
                         ->whereYear('payment_date', now()->year)
                         ->exists();
 
                     // Si ya se registró un pago físico de instalación, lo quitamos
                     $hasSetupPayment = \App\Models\Payment::where('license_id', $l->id)
-                        ->where('license_payment_type', 'instalacion')
+                        ->whereIn('license_payment_type', ['instalacion', 'total'])
                         ->exists();
 
                     // Guardamos estos estados en el objeto para usarlos en la vista
                     $l->already_paid_monthly = $hasMonthlyPayment;
                     $l->already_paid_setup = $hasSetupPayment;
 
+                    $monthlyUsed = in_array($monthlyConcept, $usedConcepts) || in_array($annualTotalConcept, $usedConcepts);
+
                     // Solo sugerimos si NO se ha pagado físicamente Y NO se ha canjeado antes
-                    return (!$hasMonthlyPayment && !in_array($monthlyConcept, $usedConcepts)) || 
+                    return (!$hasMonthlyPayment && !$monthlyUsed) ||
                            (!$hasSetupPayment && !in_array($setupConcept, $usedConcepts));
                 });
 

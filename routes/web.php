@@ -45,6 +45,11 @@ Route::middleware('auth')->group(function () {
     // Licenses CRUD resource routes protected by auth
     Route::resource('licenses', LicenseController::class)->except(['create', 'edit', 'show']);
 
+    // License PDF contract upload, inline viewer / download, and removal
+    Route::post('/licenses/{license}/contract', [LicenseController::class, 'uploadContract'])->name('licenses.contract.upload');
+    Route::get('/licenses/{license}/contract', [LicenseController::class, 'showContract'])->name('licenses.contract.show');
+    Route::delete('/licenses/{license}/contract', [LicenseController::class, 'destroyContract'])->name('licenses.contract.destroy');
+
     // License remote system control (proxy to avoid CORS - Solo Superadministrador)
     Route::get('/licenses/{license}/system-status', [LicenseController::class, 'systemStatus'])->name('licenses.system-status');
     Route::post('/licenses/{license}/system-toggle', [LicenseController::class, 'systemToggle'])->name('licenses.system-toggle');

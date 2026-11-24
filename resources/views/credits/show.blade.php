@@ -282,15 +282,19 @@
                         </div>
                     @endif
 
-                    {{-- Sugerencia de Mensualidad --}}
-                    @php $monthlyConcept = 'Canje Mensualidad: ' . $rl->url; @endphp
-                    @if($rl->monthly_fee > 0 && !in_array($monthlyConcept, $usedConcepts) && !($rl->already_paid_monthly ?? false))
+                    {{-- Sugerencia de Mensualidad / Ciclo --}}
+                    @php
+                        $monthlyConcept = 'Canje Mensualidad: ' . $rl->url;
+                        $annualTotalConcept = 'Canje Anual Total: ' . $rl->url;
+                        $cycleAmount = $rl->service_amount;
+                    @endphp
+                    @if($cycleAmount > 0 && !in_array($monthlyConcept, $usedConcepts) && !in_array($annualTotalConcept, $usedConcepts) && !($rl->already_paid_monthly ?? false))
                         <div class="exchange-suggestion-item" 
                             style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px; cursor:pointer; transition:all .2s;"
-                            onclick="fillAbonoForm('{{ $rl->monthly_fee }}', '{{ $monthlyConcept }}', '{{ $rl->created_at->format('Y-m-d') }}')">
+                            onclick="fillAbonoForm('{{ $cycleAmount }}', '{{ $monthlyConcept }}', '{{ $rl->created_at->format('Y-m-d') }}')">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                                <span style="font-weight:600; color:#42a5f5;">${{ number_format($rl->monthly_fee, 2) }}</span>
-                                <span style="font-size:10px; color:rgba(255,255,255,0.25); text-transform:uppercase;">Mensualidad</span>
+                                <span style="font-weight:600; color:#42a5f5;">${{ number_format($cycleAmount, 2) }}</span>
+                                <span style="font-size:10px; color:rgba(255,255,255,0.25); text-transform:uppercase;">{{ $rl->billing_cycle_label }}</span>
                             </div>
                             <div style="font-size:11px; color:var(--silver-light);">
                                 {{ $rl->created_at->format('d/m/Y') }} — {{ $rl->url }}

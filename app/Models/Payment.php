@@ -55,7 +55,12 @@ class Payment extends Model
         }
 
         if ($this->license) {
-            $type = $this->license_payment_type === 'instalacion' ? 'Instalación' : 'Mensualidad';
+            $type = match ($this->license_payment_type) {
+                'instalacion' => 'Anualidad / Instalación',
+                'total' => 'Servicio + Anualidad',
+                'anual_total' => 'Pago Anual Total',
+                default => 'Servicio',
+            };
             return "Licencia: {$this->license->url} ({$type})";
         }
 

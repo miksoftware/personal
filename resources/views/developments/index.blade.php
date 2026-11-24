@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+@extends('layouts.app')
 
 @section('title', 'Desarrollos a Medida - MIK Software Control')
 @section('page_title', 'Desarrollos a Medida')
@@ -323,8 +323,8 @@
                                 @endif
                             </td>
                             <td>
-                                @if(!$lic->is_free && $lic->monthly_fee)
-                                    <span class="dev-amount">${{ number_format($lic->monthly_fee, 0) }}</span>
+                                @if(!$lic->is_free && $lic->service_amount > 0)
+                                    <span class="dev-amount">${{ number_format($lic->service_amount, 0) }}</span>
                                 @else
                                     <span style="color:rgba(255,255,255,0.25); font-size:13px;">—</span>
                                 @endif
