@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Credit;
 use App\Models\License;
+use App\Models\LicenseUserOverride;
 use App\Models\Client;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -35,13 +36,22 @@ class LicenseController extends Controller
         }
 
         $today = Carbon::now()->startOfDay()->toDateString();
+        $userId = Auth::id();
 
-        $licenses = License::with('client')
-            ->when($search !== '', function ($query) use ($search) {
-                $query->where(function ($q) use ($search) {
+        $licenses = License::with([
+                'client',
+                'userOverrides' => fn ($q) => $q->where('user_id', $userId),
+            ])
+            ->when($search !== '', function ($query) use ($search, $userId) {
+                $query->where(function ($q) use ($search, $userId) {
                     $q->where('url', 'like', "%{$search}%")
                         ->orWhereHas('client', function ($clientQuery) use ($search) {
-                            $clientQuery->where('name', 'like', "%{$search}%");
+                            $clientQuery->withoutGlobalScope('user_id')
+                                ->where('name', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('userOverrides', function ($overrideQuery) use ($search, $userId) {
+                            $overrideQuery->where('user_id', $userId)
+                                ->where('custom_client_name', 'like', "%{$search}%");
                         });
                 });
             })
@@ -235,6 +245,12 @@ class LicenseController extends Controller
 
         $license = new License($validated);
         $license->is_free = $isFree;
+        if (!$license->isAnnualTotal()) {
+            $license->standard_billing_cycle = $license->billing_cycle;
+            $license->standard_monthly_fee = $license->monthly_fee;
+            $license->standard_setup_fee = $license->setup_fee;
+            $license->standard_next_setup_billing_date = $license->next_setup_billing_date;
+        }
         $license->save();
 
         if ($isFree) {
@@ -247,10 +263,12 @@ class LicenseController extends Controller
     }
 
     /**
-     * Update the specified resource in storage.
+     * Update the specified resource in storage (owner only).
      */
     public function update(Request $request, License $license)
     {
+        abort_unless($license->isOwnedBy(Auth::user()), 403, 'No tienes permisos para modificar esta licencia.');
+
         $isSuperAdmin = Auth::user()?->isSuperAdmin();
         $validated = $this->validateLicenseData($request, (bool) $isSuperAdmin);
 
@@ -262,7 +280,7 @@ class LicenseController extends Controller
 
         // If the client changed, recalculate the free status for the new client.
         if ($license->client_id != $validated['client_id']) {
-            $newClientCount = License::where('client_id', $validated['client_id'])->count();
+            $newClientCount = License::where('user_id', Auth::id())->where('client_id', $validated['client_id'])->count();
             $newPosition = $newClientCount + 1;
             $license->is_free = ($newPosition % 5 === 0);
             if ($license->is_free) {
@@ -274,6 +292,18 @@ class LicenseController extends Controller
             }
         }
 
+        if ($validated['billing_cycle'] === 'anual_total' && !$license->isAnnualTotal()) {
+            $validated['standard_billing_cycle'] = $license->billing_cycle;
+            $validated['standard_monthly_fee'] = $license->monthly_fee;
+            $validated['standard_setup_fee'] = $license->setup_fee;
+            $validated['standard_next_setup_billing_date'] = $license->next_setup_billing_date;
+        } elseif ($validated['billing_cycle'] !== 'anual_total') {
+            $validated['standard_billing_cycle'] = $validated['billing_cycle'];
+            $validated['standard_monthly_fee'] = $validated['monthly_fee'];
+            $validated['standard_setup_fee'] = $validated['setup_fee'];
+            $validated['standard_next_setup_billing_date'] = $validated['next_setup_billing_date'];
+        }
+
         $license->update($validated);
 
         return redirect()->route('licenses.index')
@@ -281,10 +311,54 @@ class LicenseController extends Controller
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Allow a linked SaaS user to customize their local client display name
+     * and toggle whether the shared service uses Pago Anual Total or standard plan.
+     */
+    public function updateSharedPreferences(Request $request, License $license)
+    {
+        $user = Auth::user();
+        abort_unless($license->isSharedForUser($user), 403, 'No tienes permisos para personalizar esta licencia.');
+
+        $validated = $request->validate([
+            'custom_client_name' => ['nullable', 'string', 'max:255'],
+            'service_mode' => ['required', 'string', 'in:standard,anual_total'],
+        ], [
+            'custom_client_name.max' => 'El nombre del cliente no puede superar los 255 caracteres.',
+            'service_mode.required' => 'Debes seleccionar el tipo de servicio.',
+            'service_mode.in' => 'El tipo de servicio seleccionado no es válido.',
+        ]);
+
+        $customName = trim((string) ($validated['custom_client_name'] ?? ''));
+        if ($customName === '' || $customName === ($license->client->name ?? '')) {
+            LicenseUserOverride::where('license_id', $license->id)
+                ->where('user_id', $user->id)
+                ->delete();
+        } else {
+            LicenseUserOverride::updateOrCreate(
+                ['license_id' => $license->id, 'user_id' => $user->id],
+                ['custom_client_name' => $customName]
+            );
+        }
+
+        if ($validated['service_mode'] === 'anual_total' && !$license->isAnnualTotal()) {
+            $license->switchToAnnualTotal();
+            $license->save();
+        } elseif ($validated['service_mode'] === 'standard' && $license->isAnnualTotal()) {
+            $license->restoreStandardPlan();
+            $license->save();
+        }
+
+        return redirect()->route('licenses.index')
+            ->with('status', '¡Preferencias de licencia actualizadas correctamente!');
+    }
+
+    /**
+     * Remove the specified resource from storage (owner only).
      */
     public function destroy(License $license)
     {
+        abort_unless($license->isOwnedBy(Auth::user()), 403, 'No tienes permisos para eliminar esta licencia.');
+
         if ($license->contract_path && Storage::disk('local')->exists($license->contract_path)) {
             Storage::disk('local')->delete($license->contract_path);
         }
@@ -296,11 +370,11 @@ class LicenseController extends Controller
     }
 
     /**
-     * Upload or replace the PDF contract attached to a license.
+     * Upload or replace the PDF contract attached to a license (owner only).
      */
     public function uploadContract(Request $request, License $license)
     {
-        abort_unless((int) $license->user_id === (int) Auth::id(), 403);
+        abort_unless($license->isOwnedBy(Auth::user()), 403);
 
         $validated = $request->validate([
             'contract_pdf' => ['required', 'file', 'mimes:pdf', 'mimetypes:application/pdf', 'max:10240'],
@@ -346,7 +420,7 @@ class LicenseController extends Controller
      */
     public function showContract(Request $request, License $license)
     {
-        abort_unless((int) $license->user_id === (int) Auth::id(), 403);
+        abort_unless($license->canViewBy(Auth::user()), 403);
 
         if (!$license->contract_path || !Storage::disk('local')->exists($license->contract_path)) {
             abort(404, 'No hay contrato PDF disponible para esta licencia.');
@@ -373,7 +447,7 @@ class LicenseController extends Controller
      */
     public function destroyContract(Request $request, License $license)
     {
-        abort_unless((int) $license->user_id === (int) Auth::id(), 403);
+        abort_unless($license->isOwnedBy(Auth::user()), 403);
 
         if ($license->contract_path && Storage::disk('local')->exists($license->contract_path)) {
             Storage::disk('local')->delete($license->contract_path);
@@ -460,12 +534,12 @@ class LicenseController extends Controller
     }
 
     /**
-     * Proxy: Get remote system modules.
-     * Exclusivo para Superadministrador (softwaremik).
+     * Proxy: Get remote system modules (read-only allowed for license owner & linked SaaS users).
      */
     public function systemModules(License $license): JsonResponse
     {
-        abort_unless(Auth::user()?->isSuperAdmin(), 403, 'Acceso denegado. Solo el Superadministrador puede consultar los módulos remotos.');
+        $user = Auth::user();
+        abort_unless($user?->isSuperAdmin() || $license->canViewBy($user), 403, 'Acceso denegado. No puedes consultar los módulos de esta licencia.');
 
         $token = $this->getRemoteToken($license);
 

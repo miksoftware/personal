@@ -264,6 +264,11 @@
                                     <span title="Cuentas bancarias" style="font-size: 11px; padding: 3px 8px; border-radius: 6px; background: rgba(255,255,255,0.04); color: var(--silver-light); border: 1px solid rgba(255,255,255,0.05);">
                                         <i class="bi bi-bank"></i> {{ $user->bank_accounts_count }} cuentas
                                     </span>
+                                    @if($user->linkedClient)
+                                        <span title="Cliente compartido vinculado" style="font-size: 11px; padding: 3px 8px; border-radius: 6px; background: rgba(66, 165, 245, 0.14); color: #90caf9; border: 1px solid rgba(66, 165, 245, 0.35);">
+                                            <i class="bi bi-link-45deg"></i> Licencias de: {{ $user->linkedClient->name }}
+                                        </span>
+                                    @endif
                                 </div>
                             </td>
 
@@ -326,6 +331,17 @@
                                     >
                                         <i class="bi bi-key"></i> Clave
                                     </button>
+
+                                    @if(!$user->isSuperAdmin())
+                                    <button
+                                        type="button"
+                                        title="Vincular licencias de un cliente"
+                                        onclick="openLinkClientModal('{{ $user->id }}', '{{ addslashes($user->name) }}', '{{ $user->linked_client_id ?? '' }}')"
+                                        style="cursor: pointer; border: 1px solid rgba(66, 165, 245, 0.4); border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 500; background: rgba(66, 165, 245, 0.1); color: #90caf9; transition: all 0.2s; display: inline-flex; align-items: center; gap: 5px;"
+                                    >
+                                        <i class="bi bi-link-45deg"></i> Cliente
+                                    </button>
+                                    @endif
 
                                 </div>
                             </td>
@@ -493,6 +509,47 @@
             closeResetPasswordModal();
         }
     });
+
+    function openLinkClientModal(userId, userName, linkedClientId) {
+        const dialog = document.getElementById('linkClientDialog');
+        const form = document.getElementById('linkClientForm');
+        document.getElementById('linkClientUserName').textContent = userName;
+        document.getElementById('link_client_id').value = linkedClientId || '';
+        form.action = `/admin/users/${userId}/link-client`;
+        dialog.showModal();
+    }
 </script>
+
+{{-- MODAL VINCULAR CLIENTE COMPARTIDO --}}
+<dialog class="mik-dialog mik-dialog--sm" id="linkClientDialog" closedby="any" aria-labelledby="linkClientTitle">
+    <div class="modal-header">
+        <h1 class="modal-title" id="linkClientTitle">Vincular Cliente Compartido</h1>
+        <button type="button" class="modal-close" onclick="document.getElementById('linkClientDialog').close()" aria-label="Cerrar">&times;</button>
+    </div>
+
+    <p style="color:var(--silver-light); font-size:13px; margin:-4px 0 14px; line-height:1.5;">
+        El usuario <strong id="linkClientUserName" style="color:var(--white);"></strong> verá las licencias y módulos activos del cliente seleccionado (solo lectura, excepto cambiar el nombre en su vista y el tipo Anual Total).
+    </p>
+
+    <form id="linkClientForm" method="POST">
+        @csrf
+        <div class="form-group">
+            <label for="link_client_id" class="form-label">Cliente vinculado</label>
+            <select name="linked_client_id" id="link_client_id">
+                <option value="">— Sin vincular —</option>
+                @foreach($clients as $clientOption)
+                    <option value="{{ $clientOption->id }}">
+                        {{ $clientOption->name }} ({{ $clientOption->model }})
+                    </option>
+                @endforeach
+            </select>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="document.getElementById('linkClientDialog').close()">Cancelar</button>
+            <button type="submit" class="btn-primary-action">Guardar Vínculo</button>
+        </div>
+    </form>
+</dialog>
 
 @endsection

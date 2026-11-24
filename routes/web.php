@@ -44,6 +44,7 @@ Route::middleware('auth')->group(function () {
 
     // Licenses CRUD resource routes protected by auth
     Route::resource('licenses', LicenseController::class)->except(['create', 'edit', 'show']);
+    Route::patch('/licenses/{license}/shared-preferences', [LicenseController::class, 'updateSharedPreferences'])->name('licenses.shared-preferences');
 
     // License PDF contract upload, inline viewer / download, and removal
     Route::post('/licenses/{license}/contract', [LicenseController::class, 'uploadContract'])->name('licenses.contract.upload');
@@ -98,6 +99,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/users', [AdminUserController::class, 'index'])->name('users.index');
         Route::post('/users/{user}/toggle-status', [AdminUserController::class, 'toggleStatus'])->name('users.toggle-status');
         Route::post('/users/{user}/reset-password', [AdminUserController::class, 'resetPassword'])->name('users.reset-password');
+        Route::post('/users/{user}/link-client', [AdminUserController::class, 'linkClient'])->name('users.link-client');
     });
 
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');

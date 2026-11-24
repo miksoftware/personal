@@ -3,6 +3,7 @@
 @section('title', 'Licencias - MIK Software Control')
 @section('page_title', 'Licencias')
 @section('page_subtitle', 'Administra tus licencias, cobros por ciclo, pagos anuales totales y contratos en PDF.')
+@section('layout_class', 'app-layout--viewport-lock')
 
 @section('content')
 
@@ -118,10 +119,16 @@
                 </form>
             </search>
 
+            @php
+                $currentUser = Auth::user();
+                $canCreateOwnLicense = $clients->isNotEmpty() || !$currentUser->hasLinkedClient();
+            @endphp
+            @if($canCreateOwnLicense)
             <button type="button" class="btn-primary-action" id="btnOpenCreateModal">
                 <i class="bi bi-plus-lg" aria-hidden="true"></i>
                 <span>Nueva Licencia</span>
             </button>
+            @endif
         </div>
 
         {{-- Quick Filter Pills --}}
@@ -175,17 +182,27 @@
                                     $hasCache = !empty($cachedMod);
                                     $accEnabled = $hasCache ? (($cachedMod['accounting']['enabled'] ?? false) || ($cachedMod['accounting']['status'] ?? '') === 'enabled') : null;
                                     $ecomEnabled = $hasCache ? (($cachedMod['ecommerce']['enabled'] ?? false) || ($cachedMod['ecommerce']['status'] ?? '') === 'enabled') : null;
-                                    $isSuper = Auth::user()->isSuperAdmin();
+                                    $isSuper = $currentUser->isSuperAdmin();
+                                    $isOwned = $license->isOwnedBy($currentUser);
+                                    $isShared = $license->isSharedForUser($currentUser);
+                                    $displayClientName = $license->displayClientNameFor($currentUser);
+                                    $hasCustomName = $isShared && $displayClientName !== ($license->client->name ?? '');
 
                                     $licensePayload = [
                                         'id' => $license->id,
+                                        'is_owned' => $isOwned,
+                                        'is_shared' => $isShared,
                                         'client_id' => $license->client_id,
-                                        'client_name' => $license->client->name ?? '',
+                                        'client_name' => $displayClientName,
+                                        'original_client_name' => $license->client->name ?? '',
+                                        'custom_client_name' => $hasCustomName ? $displayClientName : '',
                                         'url' => $license->url,
-                                        'block_token' => $license->block_token,
                                         'status' => $license->status,
                                         'billing_cycle' => $license->billing_cycle,
                                         'billing_cycle_label' => $license->billing_cycle_label,
+                                        'is_annual_total' => $license->isAnnualTotal(),
+                                        'projected_annual_total' => (float) $license->projected_annual_total,
+                                        'standard_plan_summary' => $license->standard_plan_summary,
                                         'monthly_fee' => (float) $license->monthly_fee,
                                         'setup_fee' => (float) $license->setup_fee,
                                         'service_amount' => (float) $breakdown['service_amount'],
@@ -201,15 +218,24 @@
                                         'contract_uploaded_at' => $license->contract_uploaded_at?->format('d M Y H:i'),
                                         'contract_url' => $license->hasContract() ? route('licenses.contract.show', $license) : null,
                                         'contract_download_url' => $license->hasContract() ? route('licenses.contract.show', ['license' => $license->id, 'download' => 1]) : null,
-                                        'contract_upload_url' => route('licenses.contract.upload', $license),
-                                        'contract_delete_url' => route('licenses.contract.destroy', $license),
+                                        'contract_upload_url' => $isOwned ? route('licenses.contract.upload', $license) : null,
+                                        'contract_delete_url' => $isOwned ? route('licenses.contract.destroy', $license) : null,
+                                        'shared_preferences_url' => $isShared ? route('licenses.shared-preferences', $license) : null,
                                     ];
+                                    if ($isSuper) {
+                                        $licensePayload['block_token'] = $license->block_token;
+                                    }
                                     $licenseJson = json_encode($licensePayload, JSON_UNESCAPED_UNICODE);
                                 @endphp
                                 <tr>
                                     {{-- 1. Cliente & Sitio --}}
                                     <td class="td-client">
-                                        <div class="lic-client-name">{{ $license->client->name }}</div>
+                                        <div class="lic-client-name">
+                                            {{ $displayClientName }}
+                                            @if($isShared)
+                                                <span class="lic-shared-badge" title="Licencia compartida">Compartida</span>
+                                            @endif
+                                        </div>
                                         <a href="{{ str_starts_with($license->url, 'http') ? $license->url : 'https://' . $license->url }}"
                                            target="_blank"
                                            rel="noopener noreferrer"
@@ -232,20 +258,24 @@
                                             {{ $license->status_label }}
                                         </span>
 
-                                        <div class="license-modules-cell" id="modulesCell_{{ $license->id }}" data-license-id="{{ $license->id }}" style="margin-top:6px;">
+                                        <div class="license-modules-cell" id="modulesCell_{{ $license->id }}" data-license-id="{{ $license->id }}" style="margin-top:4px;">
+                                            @if($isSuper)
                                             <button
                                                 type="button"
-                                                class="mod-table-badge {{ $accEnabled === true ? 'enabled' : ($accEnabled === false ? 'disabled' : 'loading') }} {{ $isSuper ? 'interactive' : '' }}"
+                                                class="mod-table-badge {{ $accEnabled === true ? 'enabled' : ($accEnabled === false ? 'disabled' : 'loading') }} interactive"
                                                 id="modBadge_{{ $license->id }}_accounting"
                                                 data-module="accounting"
-                                                @if($isSuper)
-                                                    data-action="toggle-module"
-                                                    data-license-id="{{ $license->id }}"
-                                                    aria-label="Alternar módulo Contabilidad para {{ $license->url }}"
-                                                @else
-                                                    disabled
-                                                @endif
+                                                data-action="toggle-module"
+                                                data-license-id="{{ $license->id }}"
+                                                aria-label="Alternar módulo Contabilidad para {{ $license->url }}"
                                             >
+                                            @else
+                                            <div
+                                                class="mod-table-badge {{ $accEnabled === true ? 'enabled' : ($accEnabled === false ? 'disabled' : 'loading') }}"
+                                                id="modBadge_{{ $license->id }}_accounting"
+                                                data-module="accounting"
+                                            >
+                                            @endif
                                                 <span class="mod-table-label">
                                                     <i class="bi bi-journal-bookmark-fill" aria-hidden="true"></i> Conta
                                                 </span>
@@ -258,21 +288,29 @@
                                                         <span class="sys-spinner mini"></span>
                                                     @endif
                                                 </span>
+                                            @if($isSuper)
                                             </button>
+                                            @else
+                                            </div>
+                                            @endif
 
+                                            @if($isSuper)
                                             <button
                                                 type="button"
-                                                class="mod-table-badge {{ $ecomEnabled === true ? 'enabled' : ($ecomEnabled === false ? 'disabled' : 'loading') }} {{ $isSuper ? 'interactive' : '' }}"
+                                                class="mod-table-badge {{ $ecomEnabled === true ? 'enabled' : ($ecomEnabled === false ? 'disabled' : 'loading') }} interactive"
                                                 id="modBadge_{{ $license->id }}_ecommerce"
                                                 data-module="ecommerce"
-                                                @if($isSuper)
-                                                    data-action="toggle-module"
-                                                    data-license-id="{{ $license->id }}"
-                                                    aria-label="Alternar módulo Tienda para {{ $license->url }}"
-                                                @else
-                                                    disabled
-                                                @endif
+                                                data-action="toggle-module"
+                                                data-license-id="{{ $license->id }}"
+                                                aria-label="Alternar módulo Tienda para {{ $license->url }}"
                                             >
+                                            @else
+                                            <div
+                                                class="mod-table-badge {{ $ecomEnabled === true ? 'enabled' : ($ecomEnabled === false ? 'disabled' : 'loading') }}"
+                                                id="modBadge_{{ $license->id }}_ecommerce"
+                                                data-module="ecommerce"
+                                            >
+                                            @endif
                                                 <span class="mod-table-label">
                                                     <i class="bi bi-shop" aria-hidden="true"></i> Tienda
                                                 </span>
@@ -285,7 +323,11 @@
                                                         <span class="sys-spinner mini"></span>
                                                     @endif
                                                 </span>
+                                            @if($isSuper)
                                             </button>
+                                            @else
+                                            </div>
+                                            @endif
                                         </div>
                                     </td>
 
@@ -401,7 +443,7 @@
                                                     <span>Ver PDF</span>
                                                 </button>
                                                 <span class="lic-contract-filename">{{ $license->contract_original_name ?: 'contrato.pdf' }}</span>
-                                            @else
+                                            @elseif($isOwned)
                                                 <button
                                                     type="button"
                                                     class="lic-contract-btn no-file"
@@ -412,6 +454,8 @@
                                                     <i class="bi bi-upload" aria-hidden="true"></i>
                                                     <span>Subir PDF</span>
                                                 </button>
+                                            @else
+                                                <span style="font-size:11.5px; color:rgba(255,255,255,0.38);">Sin contrato</span>
                                             @endif
                                         </div>
                                     </td>
@@ -419,52 +463,67 @@
                                     {{-- 7. Acciones --}}
                                     <td class="td-actions" style="text-align:center;">
                                         <div class="actions-cell" style="justify-content:center; gap:6px;">
-                                            <button
-                                                type="button"
-                                                class="btn-action edit"
-                                                title="Registrar pago"
-                                                aria-label="Registrar pago para {{ $license->url }}"
-                                                style="background:rgba(72,199,142,0.1); color:#48c78e; border:1px solid rgba(72,199,142,0.25);"
-                                                data-action="pay-license"
-                                                data-license="{{ $licenseJson }}"
-                                            >
-                                                <i class="bi bi-cash-stack" aria-hidden="true"></i>
-                                            </button>
+                                            @if($isOwned)
+                                                <button
+                                                    type="button"
+                                                    class="btn-action edit"
+                                                    title="Registrar pago"
+                                                    aria-label="Registrar pago para {{ $license->url }}"
+                                                    style="background:rgba(72,199,142,0.1); color:#48c78e; border:1px solid rgba(72,199,142,0.25);"
+                                                    data-action="pay-license"
+                                                    data-license="{{ $licenseJson }}"
+                                                >
+                                                    <i class="bi bi-cash-stack" aria-hidden="true"></i>
+                                                </button>
 
-                                            <button
-                                                type="button"
-                                                class="btn-action edit"
-                                                title="Editar licencia"
-                                                aria-label="Editar licencia {{ $license->url }}"
-                                                data-action="edit-license"
-                                                data-license="{{ $licenseJson }}"
-                                            >
-                                                <i class="bi bi-pencil-fill" aria-hidden="true"></i>
-                                            </button>
+                                                <button
+                                                    type="button"
+                                                    class="btn-action edit"
+                                                    title="Editar licencia"
+                                                    aria-label="Editar licencia {{ $license->url }}"
+                                                    data-action="edit-license"
+                                                    data-license="{{ $licenseJson }}"
+                                                >
+                                                    <i class="bi bi-pencil-fill" aria-hidden="true"></i>
+                                                </button>
 
-                                            @if($isSuper)
-                                            <button
-                                                type="button"
-                                                class="btn-action power"
-                                                title="Control Remoto de Sistema y Módulos"
-                                                aria-label="Control remoto de {{ $license->url }}"
-                                                data-action="system-control"
-                                                data-license="{{ $licenseJson }}"
-                                            >
-                                                <i class="bi bi-power" aria-hidden="true"></i>
-                                            </button>
+                                                @if($isSuper)
+                                                <button
+                                                    type="button"
+                                                    class="btn-action power"
+                                                    title="Control Remoto de Sistema y Módulos"
+                                                    aria-label="Control remoto de {{ $license->url }}"
+                                                    data-action="system-control"
+                                                    data-license="{{ $licenseJson }}"
+                                                >
+                                                    <i class="bi bi-power" aria-hidden="true"></i>
+                                                </button>
+                                                @endif
+
+                                                <button
+                                                    type="button"
+                                                    class="btn-action delete"
+                                                    title="Eliminar licencia"
+                                                    aria-label="Eliminar licencia {{ $license->url }}"
+                                                    data-action="delete-license"
+                                                    data-license="{{ $licenseJson }}"
+                                                >
+                                                    <i class="bi bi-trash-fill" aria-hidden="true"></i>
+                                                </button>
+                                            @else
+                                                <button
+                                                    type="button"
+                                                    class="btn-action edit"
+                                                    title="Cambiar nombre local o modalidad Anual Total"
+                                                    aria-label="Personalizar servicio y nombre para {{ $license->url }}"
+                                                    style="width:auto; padding:0 10px; gap:5px; background:rgba(196,113,74,0.12); color:var(--salmon-light); border:1px solid rgba(196,113,74,0.3); font-size:11.5px; font-weight:600;"
+                                                    data-action="edit-shared"
+                                                    data-license="{{ $licenseJson }}"
+                                                >
+                                                    <i class="bi bi-sliders" aria-hidden="true"></i>
+                                                    <span>Configurar</span>
+                                                </button>
                                             @endif
-
-                                            <button
-                                                type="button"
-                                                class="btn-action delete"
-                                                title="Eliminar licencia"
-                                                aria-label="Eliminar licencia {{ $license->url }}"
-                                                data-action="delete-license"
-                                                data-license="{{ $licenseJson }}"
-                                            >
-                                                <i class="bi bi-trash-fill" aria-hidden="true"></i>
-                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -1146,6 +1205,78 @@
     </form>
 </dialog>
 
+{{-- ==============================================================
+     10. SHARED LICENSE PREFERENCES DIALOG (Usuario SaaS vinculado)
+     ============================================================== --}}
+<dialog class="mik-dialog" id="sharedLicenseDialog" closedby="any" aria-labelledby="sharedLicenseTitle">
+    <div class="modal-header">
+        <h1 class="modal-title" id="sharedLicenseTitle" style="display:flex; align-items:center; gap:9px;">
+            <i class="bi bi-sliders" style="color:var(--salmon-light);" aria-hidden="true"></i>
+            <span>Configurar Licencia</span>
+        </h1>
+        <button type="button" class="modal-close" data-close-dialog="sharedLicenseDialog" aria-label="Cerrar">&times;</button>
+    </div>
+
+    <div style="padding:10px 14px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:10px; margin-bottom:14px;">
+        <div style="font-size:11px; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:0.4px;">Sitio de la licencia</div>
+        <div id="sharedLicenseUrl" style="font-size:13px; color:#9dc5ff; word-break:break-all; margin-top:2px;"></div>
+    </div>
+
+    <form id="sharedLicenseForm" method="POST" autocomplete="off">
+        @csrf
+        @method('PATCH')
+
+        <div class="form-group">
+            <label for="shared_custom_client_name" class="form-label">Nombre del Cliente (solo para tu vista)</label>
+            <input
+                type="text"
+                name="custom_client_name"
+                id="shared_custom_client_name"
+                class="form-input"
+                placeholder="Ej. Nombre de tu cliente final"
+                aria-describedby="shared_client_name_hint"
+                autofocus
+            >
+            <span id="shared_client_name_hint" class="lic-field-hint">
+                Si lo cambias, solo cambia en tu panel. El administrador seguirá viendo su nombre original (<span id="sharedOriginalClientName"></span>).
+            </span>
+        </div>
+
+        <fieldset class="lic-annual-section" id="sharedServiceModeFieldset">
+            <legend class="lic-annual-section-legend">Tipo de Servicio (Sincronizado)</legend>
+            <div class="lic-radio-choices">
+                <label class="lic-radio-card" for="shared_mode_standard">
+                    <input type="radio" name="service_mode" id="shared_mode_standard" value="standard">
+                    <div>
+                        <div style="font-weight:700; font-size:13.5px; color:var(--white);">Plan Estándar (Por ciclo + anualidad)</div>
+                        <div id="sharedStandardPlanDesc" style="font-size:12px; color:var(--silver-light); margin-top:2px;"></div>
+                    </div>
+                </label>
+
+                <label class="lic-radio-card" for="shared_mode_annual_total">
+                    <input type="radio" name="service_mode" id="shared_mode_annual_total" value="anual_total">
+                    <div>
+                        <div style="font-weight:700; font-size:13.5px; color:#fcd34d;">Pago Anual Total (Todo incluido)</div>
+                        <div id="sharedAnnualTotalPlanDesc" style="font-size:12px; color:var(--silver-light); margin-top:2px;"></div>
+                    </div>
+                </label>
+            </div>
+            <p class="lic-field-hint" style="margin-top:8px; margin-bottom:8px;">
+                <i class="bi bi-arrow-left-right" aria-hidden="true"></i>
+                Este cambio de modalidad se aplica también en la licencia del administrador.
+            </p>
+        </fieldset>
+
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" data-close-dialog="sharedLicenseDialog">Cancelar</button>
+            <button type="submit" class="btn-primary-action">
+                <i class="bi bi-check-circle" aria-hidden="true"></i>
+                <span>Guardar Cambios</span>
+            </button>
+        </div>
+    </form>
+</dialog>
+
 @php
     $oldPaymentLicense = old('license_id') ? \App\Models\License::find(old('license_id')) : null;
 @endphp
@@ -1409,8 +1540,38 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('contractViewerDate').textContent = lic.contract_uploaded_at ? `(${lic.contract_uploaded_at})` : '';
         document.getElementById('contractDownloadLink').href = lic.contract_download_url || `${lic.contract_url}?download=1`;
         document.getElementById('contractExternalLink').href = lic.contract_url;
+
+        const btnReplace = document.getElementById('btnReplaceContractFromViewer');
+        const btnDelete = document.getElementById('btnDeleteContractFromViewer');
+        if (btnReplace) btnReplace.hidden = !lic.is_owned;
+        if (btnDelete) btnDelete.hidden = !lic.is_owned;
+
         contractPdfFrame.src = `${lic.contract_url}?v=${Date.now()}#view=FitH`;
         contractViewerDialog.showModal();
+    }
+
+    function openSharedLicenseModal(lic) {
+        const dialog = document.getElementById('sharedLicenseDialog');
+        const form = document.getElementById('sharedLicenseForm');
+        document.getElementById('sharedLicenseUrl').textContent = lic.url || '';
+        document.getElementById('sharedOriginalClientName').textContent = lic.original_client_name || '';
+        document.getElementById('shared_custom_client_name').value = lic.custom_client_name || lic.client_name || '';
+
+        const standardRadio = document.getElementById('shared_mode_standard');
+        const annualRadio = document.getElementById('shared_mode_annual_total');
+        if (lic.is_annual_total) {
+            annualRadio.checked = true;
+        } else {
+            standardRadio.checked = true;
+        }
+
+        document.getElementById('sharedStandardPlanDesc').textContent = lic.standard_plan_summary || 'Plan por ciclo';
+        document.getElementById('sharedAnnualTotalPlanDesc').textContent = lic.is_free
+            ? 'Gratuita ($0.00)'
+            : `Valor único anual: $${formatMoney(lic.projected_annual_total, 0)} (sin anualidad aparte)`;
+
+        form.action = lic.shared_preferences_url;
+        dialog.showModal();
     }
 
     function updateSelectedFileUI() {
@@ -2094,6 +2255,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const lic = JSON.parse(actionBtn.dataset.license || '{}');
             if (action === 'pay-license') openLicensePaymentFlow(lic);
             else if (action === 'edit-license') openEditLicenseModal(lic);
+            else if (action === 'edit-shared') openSharedLicenseModal(lic);
             else if (action === 'delete-license') openDeleteLicenseModal(lic);
             else if (action === 'system-control') openSystemControlModal(lic);
             else if (action === 'upload-contract') openContractUploadModal(lic);

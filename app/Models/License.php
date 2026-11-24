@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use Carbon\Carbon;
-use App\Models\Traits\BelongsToUser;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Support\Facades\Auth;
 
 #[Fillable([
     'user_id',
@@ -19,6 +21,10 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
     'setup_fee',
     'next_billing_date',
     'next_setup_billing_date',
+    'standard_billing_cycle',
+    'standard_monthly_fee',
+    'standard_setup_fee',
+    'standard_next_setup_billing_date',
     'is_free',
     'contract_path',
     'contract_original_name',
@@ -26,19 +32,211 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 ])]
 class License extends Model
 {
-    use BelongsToUser;
-
     protected $casts = [
         'is_free' => 'boolean',
         'contract_uploaded_at' => 'datetime',
     ];
 
     /**
-     * Get the client that owns the license.
+     * Scope licenses to owner records plus licenses belonging to the user's linked SaaS client.
+     */
+    protected static function booted(): void
+    {
+        static::addGlobalScope('user_id', function (Builder $builder) {
+            if (Auth::check()) {
+                $user = Auth::user();
+                $table = $builder->getModel()->getTable();
+
+                if (!empty($user->linked_client_id)) {
+                    $linkedClientId = (int) $user->linked_client_id;
+                    $builder->where(function (Builder $query) use ($table, $user, $linkedClientId) {
+                        $query->where("{$table}.user_id", $user->id)
+                            ->orWhere("{$table}.client_id", $linkedClientId);
+                    });
+                } else {
+                    $builder->where("{$table}.user_id", $user->id);
+                }
+            }
+        });
+
+        static::creating(function ($model) {
+            if (empty($model->user_id) && Auth::check()) {
+                $model->user_id = Auth::id();
+            }
+        });
+    }
+
+    /**
+     * Get the user that owns this license.
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the client that owns the license (bypasses tenant scope for shared reseller views).
      */
     public function client(): BelongsTo
     {
-        return $this->belongsTo(Client::class);
+        return $this->belongsTo(Client::class)->withoutGlobalScope('user_id');
+    }
+
+    /**
+     * Per-user custom client display name overrides.
+     */
+    public function userOverrides(): HasMany
+    {
+        return $this->hasMany(LicenseUserOverride::class);
+    }
+
+    /**
+     * Determine whether the given user owns this license directly.
+     */
+    public function isOwnedBy(?User $user): bool
+    {
+        return $user !== null && (int) $this->user_id === (int) $user->id;
+    }
+
+    /**
+     * Determine whether this license is shared with the given linked SaaS user.
+     */
+    public function isSharedForUser(?User $user): bool
+    {
+        return $user !== null
+            && !$this->isOwnedBy($user)
+            && !empty($user->linked_client_id)
+            && (int) $this->client_id === (int) $user->linked_client_id;
+    }
+
+    /**
+     * Determine whether the given user can view this license (owner or linked SaaS user).
+     */
+    public function canViewBy(?User $user): bool
+    {
+        return $this->isOwnedBy($user) || $this->isSharedForUser($user);
+    }
+
+    /**
+     * Resolve the client name to display for the given user (supports per-user custom rename).
+     */
+    public function displayClientNameFor(?User $user): string
+    {
+        if ($user) {
+            $override = $this->relationLoaded('userOverrides')
+                ? $this->userOverrides->firstWhere('user_id', $user->id)
+                : $this->userOverrides()->where('user_id', $user->id)->first();
+
+            if ($override && trim((string) $override->custom_client_name) !== '') {
+                return $override->custom_client_name;
+            }
+        }
+
+        return $this->client->name ?? '—';
+    }
+
+    /**
+     * Snapshot standard plan fields and switch this license to flat Pago Anual Total.
+     */
+    public function switchToAnnualTotal(): void
+    {
+        if ($this->isAnnualTotal()) {
+            return;
+        }
+
+        $this->standard_billing_cycle = $this->billing_cycle;
+        $this->standard_monthly_fee = $this->monthly_fee;
+        $this->standard_setup_fee = $this->setup_fee;
+        $this->standard_next_setup_billing_date = $this->next_setup_billing_date;
+
+        $this->billing_cycle = 'anual_total';
+        $this->monthly_fee = $this->is_free
+            ? 0.00
+            : round(((float) $this->monthly_fee * 12) + (float) $this->setup_fee, 2);
+        $this->setup_fee = 0.00;
+        $this->next_setup_billing_date = null;
+    }
+
+    /**
+     * Restore the standard plan fields when switching back from Pago Anual Total.
+     */
+    public function restoreStandardPlan(): void
+    {
+        if (!$this->isAnnualTotal()) {
+            return;
+        }
+
+        if (!empty($this->standard_billing_cycle)) {
+            $this->billing_cycle = $this->standard_billing_cycle;
+            $this->monthly_fee = $this->is_free ? 0.00 : (float) ($this->standard_monthly_fee ?? 0);
+            $this->setup_fee = (float) ($this->standard_setup_fee ?? 0);
+            $this->next_setup_billing_date = $this->standard_next_setup_billing_date;
+            return;
+        }
+
+        $this->billing_cycle = 'anual';
+        $this->monthly_fee = $this->is_free ? 0.00 : round(((float) $this->monthly_fee) / 12, 2);
+        $this->setup_fee = 0.00;
+        $this->next_setup_billing_date = null;
+    }
+
+    /**
+     * Preview the equivalent annual total and standard cycle labels for UI clarity.
+     */
+    public function getProjectedAnnualTotalAttribute(): float
+    {
+        if ($this->is_free) {
+            return 0.0;
+        }
+
+        if ($this->isAnnualTotal()) {
+            return round((float) $this->monthly_fee, 2);
+        }
+
+        return round(((float) $this->monthly_fee * 12) + (float) $this->setup_fee, 2);
+    }
+
+    /**
+     * Human-readable summary of the standard (non-annual-total) plan.
+     */
+    public function getStandardPlanSummaryAttribute(): string
+    {
+        if ($this->is_free) {
+            return 'Gratuita ($0.00)';
+        }
+
+        $cycle = $this->isAnnualTotal()
+            ? ($this->standard_billing_cycle ?: 'anual')
+            : $this->billing_cycle;
+
+        $monthly = $this->isAnnualTotal()
+            ? (float) ($this->standard_monthly_fee ?? round(((float) $this->monthly_fee) / 12, 2))
+            : (float) $this->monthly_fee;
+
+        $setup = $this->isAnnualTotal()
+            ? (float) ($this->standard_setup_fee ?? 0)
+            : (float) $this->setup_fee;
+
+        $months = match ($cycle) {
+            'trimestral' => 3,
+            'semestral' => 6,
+            'anual' => 12,
+            default => 1,
+        };
+
+        $cycleLabel = match ($cycle) {
+            'trimestral' => 'Trimestral',
+            'semestral' => 'Semestral',
+            'anual' => 'Anual',
+            default => 'Mensual',
+        };
+
+        $servicePart = '$' . number_format($monthly * $months, 0, '.', ',');
+        if ($setup > 0) {
+            return "{$cycleLabel}: {$servicePart} + Anualidad $" . number_format($setup, 0, '.', ',');
+        }
+
+        return "{$cycleLabel}: {$servicePart}";
     }
 
     /**

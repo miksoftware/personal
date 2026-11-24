@@ -25,7 +25,7 @@
     </div>
 
     <!-- App Main Layout Container -->
-    <div class="app-layout">
+    <div class="app-layout @yield('layout_class')">
         
         <!-- Sidebar Backdrop Overlay (Mobile only) -->
         <div class="sidebar-overlay" id="sidebarOverlay"></div>

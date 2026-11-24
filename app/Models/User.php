@@ -9,9 +9,10 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'email', 'password', 'role', 'is_active'])]
+#[Fillable(['name', 'email', 'password', 'role', 'is_active', 'linked_client_id'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -54,6 +55,27 @@ class User extends Authenticatable
     public function isActive(): bool
     {
         return (bool) ($this->is_active ?? true);
+    }
+
+    /**
+     * Client record in the owner's account linked to this SaaS user.
+     */
+    public function linkedClient(): BelongsTo
+    {
+        return $this->belongsTo(Client::class, 'linked_client_id')->withoutGlobalScope('user_id');
+    }
+
+    /**
+     * Check whether this SaaS user has a linked client for shared licenses.
+     */
+    public function hasLinkedClient(): bool
+    {
+        return !empty($this->linked_client_id);
+    }
+
+    public function licenseOverrides(): HasMany
+    {
+        return $this->hasMany(LicenseUserOverride::class);
     }
 
     public function clients(): HasMany
