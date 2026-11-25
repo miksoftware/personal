@@ -169,33 +169,25 @@ class LicenseController extends Controller
     }
 
     /**
-     * Validate and normalize license input for store/update.
+     * Validate shared billing cycle, fees, and dates rules.
      */
-    private function validateLicenseData(Request $request, bool $isSuperAdmin): array
+    private function billingRules(bool $isAnnualTotal): array
     {
-        $isAnnualTotal = $request->input('billing_cycle') === 'anual_total';
-
-        $rules = [
-            'client_id' => ['required', Rule::exists('clients', 'id')->where('user_id', Auth::id())],
-            'url' => ['required', 'string', 'max:255'],
-            'status' => ['required', 'string', 'in:activa,suspendida,vencida'],
+        return [
             'billing_cycle' => ['required', 'string', 'in:mensual,trimestral,semestral,anual,anual_total'],
             'monthly_fee' => ['required', 'numeric', 'min:0'],
             'setup_fee' => [$isAnnualTotal ? 'nullable' : 'required', 'numeric', 'min:0'],
             'next_billing_date' => ['required', 'date'],
             'next_setup_billing_date' => ['nullable', 'date'],
         ];
+    }
 
-        if ($isSuperAdmin) {
-            $rules['block_token'] = ['nullable', 'string', 'max:255'];
-        }
-
-        $validated = $request->validate($rules, [
-            'client_id.required' => 'El cliente es obligatorio.',
-            'client_id.exists' => 'El cliente seleccionado no es válido.',
-            'url.required' => 'La URL es obligatoria.',
-            'status.required' => 'El estado es obligatorio.',
-            'status.in' => 'El estado no es válido.',
+    /**
+     * Shared validation error messages for billing fields.
+     */
+    private function billingMessages(bool $isAnnualTotal): array
+    {
+        return [
             'billing_cycle.required' => 'El ciclo de facturación es obligatorio.',
             'billing_cycle.in' => 'El ciclo de facturación no es válido.',
             'monthly_fee.required' => $isAnnualTotal ? 'El valor total anual es obligatorio.' : 'La tarifa mensual es obligatoria.',
@@ -204,8 +196,14 @@ class LicenseController extends Controller
             'setup_fee.numeric' => 'El valor de anualidad/instalación debe ser un valor numérico.',
             'next_billing_date.required' => 'La fecha de próxima facturación es obligatoria.',
             'next_setup_billing_date.date' => 'La fecha de próxima anualidad no es válida.',
-        ]);
+        ];
+    }
 
+    /**
+     * Normalize setup fee and snapshot fields when switching billing cycles.
+     */
+    private function normalizeBillingPayload(array $validated, ?License $existing = null): array
+    {
         if ($validated['billing_cycle'] === 'anual_total') {
             $validated['setup_fee'] = 0.00;
             $validated['next_setup_billing_date'] = null;
@@ -216,7 +214,55 @@ class LicenseController extends Controller
             }
         }
 
+        if ($existing) {
+            if ($existing->is_free) {
+                $validated['monthly_fee'] = 0.00;
+            }
+
+            if ($validated['billing_cycle'] === 'anual_total' && !$existing->isAnnualTotal()) {
+                $validated['standard_billing_cycle'] = $existing->billing_cycle;
+                $validated['standard_monthly_fee'] = $existing->monthly_fee;
+                $validated['standard_setup_fee'] = $existing->setup_fee;
+                $validated['standard_next_setup_billing_date'] = $existing->next_setup_billing_date;
+            } elseif ($validated['billing_cycle'] !== 'anual_total') {
+                $validated['standard_billing_cycle'] = $validated['billing_cycle'];
+                $validated['standard_monthly_fee'] = $validated['monthly_fee'];
+                $validated['standard_setup_fee'] = $validated['setup_fee'];
+                $validated['standard_next_setup_billing_date'] = $validated['next_setup_billing_date'];
+            }
+        }
+
         return $validated;
+    }
+
+    /**
+     * Validate and normalize license input for store/update.
+     */
+    private function validateLicenseData(Request $request, bool $isSuperAdmin): array
+    {
+        $isAnnualTotal = $request->input('billing_cycle') === 'anual_total';
+
+        $rules = array_merge([
+            'client_id' => ['required', Rule::exists('clients', 'id')->where('user_id', Auth::id())],
+            'url' => ['required', 'string', 'max:255'],
+            'status' => ['required', 'string', 'in:activa,suspendida,vencida'],
+        ], $this->billingRules($isAnnualTotal));
+
+        if ($isSuperAdmin) {
+            $rules['block_token'] = ['nullable', 'string', 'max:255'];
+        }
+
+        $messages = array_merge([
+            'client_id.required' => 'El cliente es obligatorio.',
+            'client_id.exists' => 'El cliente seleccionado no es válido.',
+            'url.required' => 'La URL es obligatoria.',
+            'status.required' => 'El estado es obligatorio.',
+            'status.in' => 'El estado no es válido.',
+        ], $this->billingMessages($isAnnualTotal));
+
+        $validated = $request->validate($rules, $messages);
+
+        return $this->normalizeBillingPayload($validated);
     }
 
     /**
@@ -283,27 +329,9 @@ class LicenseController extends Controller
             $newClientCount = License::where('user_id', Auth::id())->where('client_id', $validated['client_id'])->count();
             $newPosition = $newClientCount + 1;
             $license->is_free = ($newPosition % 5 === 0);
-            if ($license->is_free) {
-                $validated['monthly_fee'] = 0.00;
-            }
-        } else {
-            if ($license->is_free) {
-                $validated['monthly_fee'] = 0.00;
-            }
         }
 
-        if ($validated['billing_cycle'] === 'anual_total' && !$license->isAnnualTotal()) {
-            $validated['standard_billing_cycle'] = $license->billing_cycle;
-            $validated['standard_monthly_fee'] = $license->monthly_fee;
-            $validated['standard_setup_fee'] = $license->setup_fee;
-            $validated['standard_next_setup_billing_date'] = $license->next_setup_billing_date;
-        } elseif ($validated['billing_cycle'] !== 'anual_total') {
-            $validated['standard_billing_cycle'] = $validated['billing_cycle'];
-            $validated['standard_monthly_fee'] = $validated['monthly_fee'];
-            $validated['standard_setup_fee'] = $validated['setup_fee'];
-            $validated['standard_next_setup_billing_date'] = $validated['next_setup_billing_date'];
-        }
-
+        $validated = $this->normalizeBillingPayload($validated, $license);
         $license->update($validated);
 
         return redirect()->route('licenses.index')
@@ -312,21 +340,23 @@ class LicenseController extends Controller
 
     /**
      * Allow a linked SaaS user to customize their local client display name
-     * and toggle whether the shared service uses Pago Anual Total or standard plan.
+     * and update shared billing cycle, values, and dates (synced with owner).
      */
     public function updateSharedPreferences(Request $request, License $license)
     {
         $user = Auth::user();
         abort_unless($license->isSharedForUser($user), 403, 'No tienes permisos para personalizar esta licencia.');
 
-        $validated = $request->validate([
-            'custom_client_name' => ['nullable', 'string', 'max:255'],
-            'service_mode' => ['required', 'string', 'in:standard,anual_total'],
-        ], [
-            'custom_client_name.max' => 'El nombre del cliente no puede superar los 255 caracteres.',
-            'service_mode.required' => 'Debes seleccionar el tipo de servicio.',
-            'service_mode.in' => 'El tipo de servicio seleccionado no es válido.',
-        ]);
+        $isAnnualTotal = $request->input('billing_cycle') === 'anual_total';
+
+        $validated = $request->validate(
+            array_merge([
+                'custom_client_name' => ['nullable', 'string', 'max:255'],
+            ], $this->billingRules($isAnnualTotal)),
+            array_merge([
+                'custom_client_name.max' => 'El nombre del cliente no puede superar los 255 caracteres.',
+            ], $this->billingMessages($isAnnualTotal))
+        );
 
         $customName = trim((string) ($validated['custom_client_name'] ?? ''));
         if ($customName === '' || $customName === ($license->client->name ?? '')) {
@@ -340,16 +370,12 @@ class LicenseController extends Controller
             );
         }
 
-        if ($validated['service_mode'] === 'anual_total' && !$license->isAnnualTotal()) {
-            $license->switchToAnnualTotal();
-            $license->save();
-        } elseif ($validated['service_mode'] === 'standard' && $license->isAnnualTotal()) {
-            $license->restoreStandardPlan();
-            $license->save();
-        }
+        unset($validated['custom_client_name']);
+        $billingData = $this->normalizeBillingPayload($validated, $license);
+        $license->update($billingData);
 
         return redirect()->route('licenses.index')
-            ->with('status', '¡Preferencias de licencia actualizadas correctamente!');
+            ->with('status', '¡Licencia compartida actualizada correctamente!');
     }
 
     /**
@@ -370,11 +396,15 @@ class LicenseController extends Controller
     }
 
     /**
-     * Upload or replace the PDF contract attached to a license (owner only).
+     * Upload a PDF contract (owner anytime; linked SaaS user only if no PDF exists yet).
      */
     public function uploadContract(Request $request, License $license)
     {
-        abort_unless($license->isOwnedBy(Auth::user()), 403);
+        $user = Auth::user();
+        if (!$license->isOwnedBy($user)) {
+            abort_unless($license->isSharedForUser($user), 403, 'No tienes permisos para subir un contrato en esta licencia.');
+            abort_if($license->hasContract(), 403, 'Esta licencia ya tiene un contrato PDF. Solo el administrador puede eliminarlo o volverlo a subir.');
+        }
 
         $validated = $request->validate([
             'contract_pdf' => ['required', 'file', 'mimes:pdf', 'mimetypes:application/pdf', 'max:10240'],
@@ -389,7 +419,7 @@ class LicenseController extends Controller
         $file = $validated['contract_pdf'];
         $previousPath = $license->contract_path;
 
-        $newPath = Storage::disk('local')->putFile('contracts/user_' . Auth::id(), $file);
+        $newPath = Storage::disk('local')->putFile('contracts/user_' . $license->user_id, $file);
 
         $license->update([
             'contract_path' => $newPath,

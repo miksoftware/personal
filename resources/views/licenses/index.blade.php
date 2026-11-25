@@ -218,7 +218,7 @@
                                         'contract_uploaded_at' => $license->contract_uploaded_at?->format('d M Y H:i'),
                                         'contract_url' => $license->hasContract() ? route('licenses.contract.show', $license) : null,
                                         'contract_download_url' => $license->hasContract() ? route('licenses.contract.show', ['license' => $license->id, 'download' => 1]) : null,
-                                        'contract_upload_url' => $isOwned ? route('licenses.contract.upload', $license) : null,
+                                        'contract_upload_url' => ($isOwned || ($isShared && !$license->hasContract())) ? route('licenses.contract.upload', $license) : null,
                                         'contract_delete_url' => $isOwned ? route('licenses.contract.destroy', $license) : null,
                                         'shared_preferences_url' => $isShared ? route('licenses.shared-preferences', $license) : null,
                                     ];
@@ -443,7 +443,7 @@
                                                     <span>Ver PDF</span>
                                                 </button>
                                                 <span class="lic-contract-filename">{{ $license->contract_original_name ?: 'contrato.pdf' }}</span>
-                                            @elseif($isOwned)
+                                            @else
                                                 <button
                                                     type="button"
                                                     class="lic-contract-btn no-file"
@@ -454,8 +454,6 @@
                                                     <i class="bi bi-upload" aria-hidden="true"></i>
                                                     <span>Subir PDF</span>
                                                 </button>
-                                            @else
-                                                <span style="font-size:11.5px; color:rgba(255,255,255,0.38);">Sin contrato</span>
                                             @endif
                                         </div>
                                     </td>
@@ -1212,7 +1210,7 @@
     <div class="modal-header">
         <h1 class="modal-title" id="sharedLicenseTitle" style="display:flex; align-items:center; gap:9px;">
             <i class="bi bi-sliders" style="color:var(--salmon-light);" aria-hidden="true"></i>
-            <span>Configurar Licencia</span>
+            <span>Configurar Licencia Compartida</span>
         </h1>
         <button type="button" class="modal-close" data-close-dialog="sharedLicenseDialog" aria-label="Cerrar">&times;</button>
     </div>
@@ -1220,6 +1218,11 @@
     <div style="padding:10px 14px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:10px; margin-bottom:14px;">
         <div style="font-size:11px; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:0.4px;">Sitio de la licencia</div>
         <div id="sharedLicenseUrl" style="font-size:13px; color:#9dc5ff; word-break:break-all; margin-top:2px;"></div>
+    </div>
+
+    <div class="modal-note" id="sharedFreeNote" style="display:none;">
+        <i class="bi bi-gift-fill" aria-hidden="true"></i>
+        <span>Esta es una licencia <strong>Gratuita</strong>. La tarifa se mantendrá en <strong>$0.00</strong> automáticamente.</span>
     </div>
 
     <form id="sharedLicenseForm" method="POST" autocomplete="off">
@@ -1242,30 +1245,72 @@
             </span>
         </div>
 
-        <fieldset class="lic-annual-section" id="sharedServiceModeFieldset">
-            <legend class="lic-annual-section-legend">Tipo de Servicio (Sincronizado)</legend>
-            <div class="lic-radio-choices">
-                <label class="lic-radio-card" for="shared_mode_standard">
-                    <input type="radio" name="service_mode" id="shared_mode_standard" value="standard">
-                    <div>
-                        <div style="font-weight:700; font-size:13.5px; color:var(--white);">Plan Estándar (Por ciclo + anualidad)</div>
-                        <div id="sharedStandardPlanDesc" style="font-size:12px; color:var(--silver-light); margin-top:2px;"></div>
-                    </div>
-                </label>
+        <div class="modal-note" style="margin-bottom:14px;">
+            <i class="bi bi-arrow-left-right" aria-hidden="true"></i>
+            <span>Los cambios en modalidad, valores y fechas de cobro se reflejan automáticamente para ambos (administrador y tú).</span>
+        </div>
 
-                <label class="lic-radio-card" for="shared_mode_annual_total">
-                    <input type="radio" name="service_mode" id="shared_mode_annual_total" value="anual_total">
-                    <div>
-                        <div style="font-weight:700; font-size:13.5px; color:#fcd34d;">Pago Anual Total (Todo incluido)</div>
-                        <div id="sharedAnnualTotalPlanDesc" style="font-size:12px; color:var(--silver-light); margin-top:2px;"></div>
-                    </div>
-                </label>
+        <div class="form-group">
+            <label for="shared_billing_cycle" class="form-label">Modalidad / Ciclo de Facturación *</label>
+            <select name="billing_cycle" id="shared_billing_cycle" required>
+                <option value="mensual">Mensual (cada mes)</option>
+                <option value="trimestral">Trimestral (cada 3 meses)</option>
+                <option value="semestral">Semestral (cada 6 meses)</option>
+                <option value="anual">Anual (Servicio + Anualidad aparte)</option>
+                <option value="anual_total">Pago Anual Total (Valor único todo incluido)</option>
+            </select>
+        </div>
+
+        <div class="lic-form-grid">
+            <div class="form-group">
+                <label for="shared_monthly_fee" id="shared_fee_label" class="form-label">Tarifa Mensual ($) *</label>
+                <input
+                    type="number"
+                    name="monthly_fee"
+                    id="shared_monthly_fee"
+                    class="form-input"
+                    step="0.01"
+                    min="0"
+                    inputmode="decimal"
+                    aria-describedby="shared_fee_hint"
+                    required
+                >
+                <span id="shared_fee_hint" class="lic-field-hint"></span>
+                <button type="button" id="shared_annual_suggestion_btn" class="lic-suggestion-btn" style="display:none;"></button>
             </div>
-            <p class="lic-field-hint" style="margin-top:8px; margin-bottom:8px;">
-                <i class="bi bi-arrow-left-right" aria-hidden="true"></i>
-                Este cambio de modalidad se aplica también en la licencia del administrador.
-            </p>
+
+            <div class="form-group">
+                <label for="shared_next_billing_date" id="shared_date_label" class="form-label">Próx. Cobro de Servicio *</label>
+                <input type="date" name="next_billing_date" id="shared_next_billing_date" class="form-input" required>
+            </div>
+        </div>
+
+        <fieldset class="lic-annual-section" id="shared_annual_section">
+            <legend class="lic-annual-section-legend">Anualidad / Instalación (Opcional)</legend>
+            <div class="lic-form-grid">
+                <div class="form-group">
+                    <label for="shared_setup_fee" class="form-label">Valor Anualidad ($)</label>
+                    <input
+                        type="number"
+                        name="setup_fee"
+                        id="shared_setup_fee"
+                        class="form-input"
+                        step="0.01"
+                        min="0"
+                        inputmode="decimal"
+                        aria-describedby="shared_setup_hint"
+                        required
+                    >
+                    <span id="shared_setup_hint" class="lic-field-hint">Déjalo en 0 si no cobra anualidad aparte.</span>
+                </div>
+                <div class="form-group">
+                    <label for="shared_next_setup_billing_date" class="form-label">Próx. Cobro Anualidad</label>
+                    <input type="date" name="next_setup_billing_date" id="shared_next_setup_billing_date" class="form-input">
+                </div>
+            </div>
         </fieldset>
+
+        <div class="lic-live-preview" id="shared_billing_preview" aria-live="polite"></div>
 
         <div class="modal-footer">
             <button type="button" class="btn-secondary" data-close-dialog="sharedLicenseDialog">Cancelar</button>
@@ -1454,10 +1499,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const createFormCtrl = setupLicenseFormBehavior('create');
     const editFormCtrl = setupLicenseFormBehavior('edit');
+    const sharedFormCtrl = setupLicenseFormBehavior('shared');
 
     const createDialog = document.getElementById('createLicenseDialog');
 
-    @if(isset($errors) && $errors->any() && !old('license_id'))
+    @if(isset($errors) && $errors->any() && !old('license_id') && ($canCreateOwnLicense ?? true))
         createFormCtrl?.refresh();
         createDialog?.showModal();
     @endif
@@ -1553,22 +1599,33 @@ document.addEventListener('DOMContentLoaded', function () {
     function openSharedLicenseModal(lic) {
         const dialog = document.getElementById('sharedLicenseDialog');
         const form = document.getElementById('sharedLicenseForm');
+        const freeNote = document.getElementById('sharedFreeNote');
+        const feeInput = document.getElementById('shared_monthly_fee');
+
         document.getElementById('sharedLicenseUrl').textContent = lic.url || '';
         document.getElementById('sharedOriginalClientName').textContent = lic.original_client_name || '';
         document.getElementById('shared_custom_client_name').value = lic.custom_client_name || lic.client_name || '';
+        document.getElementById('shared_billing_cycle').value = lic.billing_cycle || 'mensual';
+        document.getElementById('shared_setup_fee').value = lic.setup_fee ?? 0;
+        document.getElementById('shared_next_billing_date').value = lic.next_billing_date || '';
+        document.getElementById('shared_next_setup_billing_date').value = lic.next_setup_billing_date || '';
+        feeInput.value = lic.monthly_fee ?? 0;
 
-        const standardRadio = document.getElementById('shared_mode_standard');
-        const annualRadio = document.getElementById('shared_mode_annual_total');
-        if (lic.is_annual_total) {
-            annualRadio.checked = true;
+        if (lic.is_free) {
+            freeNote.style.display = 'flex';
+            feeInput.value = '0.00';
+            feeInput.readOnly = true;
+            feeInput.style.opacity = '0.55';
         } else {
-            standardRadio.checked = true;
+            freeNote.style.display = 'none';
+            feeInput.readOnly = false;
+            feeInput.style.opacity = '1';
         }
 
-        document.getElementById('sharedStandardPlanDesc').textContent = lic.standard_plan_summary || 'Plan por ciclo';
-        document.getElementById('sharedAnnualTotalPlanDesc').textContent = lic.is_free
-            ? 'Gratuita ($0.00)'
-            : `Valor único anual: $${formatMoney(lic.projected_annual_total, 0)} (sin anualidad aparte)`;
+        const equivalent = lic.billing_cycle !== 'anual_total'
+            ? ((Number(lic.monthly_fee || 0) * 12) + Number(lic.setup_fee || 0))
+            : 0;
+        sharedFormCtrl?.setOriginalStandardAnnualEquivalent(equivalent);
 
         form.action = lic.shared_preferences_url;
         dialog.showModal();
